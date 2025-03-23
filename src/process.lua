@@ -165,9 +165,38 @@ local function rawSpawn(init, config)
     if ring == 0 then
         namespace._OS = _G
     end
+    namespace.arg = table.copy(args)
+    namespace._G = namespace
+    namespace._VERSION = _VERSION
+    namespace.assert = assert
+    namespace.error = error
+    namespace.getmetatable = getmetatable
+    namespace.ipairs = ipairs
+    namespace.load = function(code, name, kind, _G)
+        return load(code, name, kind, _G or namespace)
+    end
+    namespace.next = next
+    namespace.pairs = pairs
+    namespace.pcall = pcall
+    namespace.rawequal = rawequal
+    namespace.rawget = rawget
+    namespace.rawset = rawset
+    namespace.rawlen = rawlen
+    namespace.select = select
+    namespace.setmetatable = setmetatable
+    namespace.tonumber = tonumber
+    namespace.tostring = tostring
+    namespace.type = type
+    namespace.xpcall = xpcall
+    namespace.bit32 = table.copy(bit32)
     namespace.table = table.copy(table)
     namespace.string = table.copy(string)
     namespace.math = table.copy(math)
+    namespace.debug = table.copy(debug)
+    namespace.os = table.copy(os)
+    namespace.checkArg = checkArg
+    namespace.unicode = table.copy(unicode)
+    namespace.utf8 = table.copy(utf8)
 
     proc.pid = pid
     proc.parent = config.parent

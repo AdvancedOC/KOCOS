@@ -242,7 +242,7 @@ function fs.read(file, len)
     elseif file.kind == "memory" then
         ---@cast file KOCOS.MemoryFile
 
-        local data = file.buffer:sub(file.cursor+1, math.tointeger(len) and file.cursor+len)
+        local data = file.buffer:sub(file.cursor+1, (len ~= math.huge) and file.cursor+len or nil)
         if #data == 0 then
             return nil, nil
         end
