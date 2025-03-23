@@ -270,6 +270,20 @@ function fs.seek(file, whence, offset)
 end
 
 ---@param path string
+---@return integer
+function fs.spaceUsed(path)
+    local manager = fs.resolve(path)
+    return manager:spaceUsed()
+end
+
+---@param path string
+---@return integer
+function fs.spaceTotal(path)
+    local manager = fs.resolve(path)
+    return manager:spaceTotal()
+end
+
+---@param path string
 function fs.parentOf(path)
     local parts = string.split(fs.canonical(path), "%/")
     parts[#parts] = nil
