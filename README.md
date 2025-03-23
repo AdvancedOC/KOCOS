@@ -14,7 +14,7 @@ KOCOS provides a process system (with multi-threading and critical sections!), f
 - Per-resource event system
 - Resource sharing via sharing file descriptors
 - File descriptors to non-file resources
-- Its ouwn executable and linkable format (KOCOS Executable or Linkable Process / KELP)
+- Its own executable and linkable format (KOCOS Executable or Linkable Process / KELP)
 
 ## Project structure
 
