@@ -152,7 +152,7 @@ local function rawSpawn(init, config)
     namespace.syscall = function(name, ...)
         local sys = KOCOS.syscall[name]
         if not sys then return "bad syscall" end
-        local t = {pcall(sys, ...)}
+        local t = {pcall(sys, proc, ...)}
         if t[1] then
             return nil, table.unpack(t, 2)
         else
@@ -239,3 +239,6 @@ function process.run()
 end
 
 KOCOS.process = process
+
+-- In case syscalls are deleted, technically allowed!
+KOCOS.syscalls = {}

@@ -1,0 +1,3 @@
+local syscalls = {}
+
+KOCOS.syscalls = {}

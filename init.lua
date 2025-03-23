@@ -1,6 +1,6 @@
 local rootfs = computer.getBootAddress()
 
-KOCOS_CONFIG = {
+local config = {
     rootfs = rootfs,
 }
 
@@ -22,7 +22,7 @@ function dofile(file, ...)
     return assert(load(code, "=" .. file, "bt", _G))(...)
 end
 
-dofile("kernel.lua")
+dofile("kernel.lua", config)
 
 local tty = KOCOS.tty.create(component.gpu, component.screen)
 tty:clear()
@@ -34,7 +34,11 @@ printingLogsProcess:attach(function()
     while true do
         if KOCOS.event.queued("klog") then
             local _, msg, time = KOCOS.event.pop("klog")
-            tty:print("[%3.2f] %s\n", time, msg)
+            tty:print("[LOG   %3.2f] %s\n", time, msg)
+        end
+        if KOCOS.event.queued("kpanic") then
+            local _, msg, time = KOCOS.event.pop("kpanic")
+            tty:print("[PANIC %3.2f] %s\n", time, msg)
         end
         coroutine.yield()
     end
@@ -43,8 +47,4 @@ KOCOS.log("Created log process")
 
 printingLogsProcess.events.listen(KOCOS.logAll)
 
-while true do
-    KOCOS.runDeferred(0.1)
-    KOCOS.event.process(0.05)
-    KOCOS.process.run()
-end
+KOCOS.loop()
