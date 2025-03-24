@@ -26,13 +26,17 @@ function KOCOS.logAll(...)
     return KOCOS.log("%s", table.concat(t, " "))
 end
 
+local function oceLog(s)
+    if component.ocelot then
+        component.ocelot.log(s)
+    end
+end
+
 function KOCOS.log(fmt, ...)
     local time = computer.uptime()
     local s = string.format(fmt, ...)
     KOCOS.event.push("klog", s, time)
-    if component.ocelot then
-        component.ocelot.log(s)
-    end
+    oceLog(s)
 end
 
 local deferred = {}
@@ -62,6 +66,7 @@ function KOCOS.pcall(f, ...)
     if not ok then
         pcall(computer.beep)
         pcall(KOCOS.event.push, "kpanic", err, computer.uptime())
+        pcall(oceLog, err)
     end
     return ok
 end
@@ -110,4 +115,14 @@ function KOCOS.loop()
         end
         lastPanicked = panicked
     end
+end
+
+-- For autocomplete
+if 1<0 then
+    _K = KOCOS
+    _OS = _G
+
+    ---@param sys string
+    ---@return ...
+    function syscall(sys, ...) end
 end

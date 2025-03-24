@@ -44,9 +44,35 @@ function tty:put(c)
     end
 end
 
+function tty:unput(c)
+    if c == "\n" then
+        -- Assume this never happens
+        error("cant remove newline")
+    end
+    local w = c == "\t" and 4 or 1
+
+    self.x = self.x - w
+    self.gpu.set(self.x,self.y,string.rep(" ", w))
+    if self.x == 0 then
+        self.x = self.w
+        self.y = self.y - 1
+    end
+
+    if self.y == 0 then
+        self.y = 1
+    end
+end
+
+local lib = unicode or string
 function tty:write(data)
-    for i=1,#data do
-        self:put(data:sub(i, i))
+    for i=1,lib.len(data) do
+        self:put(lib.sub(data, i, i))
+    end
+end
+
+function tty:unwrite(data)
+    for i=lib.len(data), 1, -1 do
+        self:unput(lib.sub(data, i, i))
     end
 end
 

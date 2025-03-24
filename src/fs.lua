@@ -5,7 +5,7 @@
 ---@class KOCOS.File
 ---@field mode "w"|"r"
 ---@field refc integer
----@field kind "disk"|"memory"|"pipe"|"event"
+---@field kind "disk"|"memory"|"pipe"
 ---@field events KOCOS.EventSystem
 
 ---@class KOCOS.DiskFile: KOCOS.File
@@ -70,19 +70,6 @@ function fs.resolve(path)
     end
 
     return globalTranslation[""], path
-end
-
----@param maximum? integer
----@return KOCOS.File
-function fs.eventfd(maximum)
-    maximum = maximum or KOCOS.maxEventBacklog
-    ---@type KOCOS.File
-    return {
-        mode = "r",
-        kind = "event",
-        refc = 1,
-        events = KOCOS.event.create(KOCOS.maxEventBacklog),
-    }
 end
 
 ---@param mode "w"|"r"
@@ -225,8 +212,6 @@ function fs.write(file, data)
     elseif file.kind == "pipe" then
         ---@cast file KOCOS.PipeFile
         return fs.write(file.output, data)
-    elseif file.kind == "event" then
-        return true, "" -- allowed
     end
     return false, "bad file"
 end
@@ -244,6 +229,10 @@ function fs.read(file, len)
 
         local data = file.buffer:sub(file.cursor+1, (len ~= math.huge) and file.cursor+len or nil)
         if #data == 0 then
+            if file.mode == "w" then
+                -- w means this is used as an endless stream
+                return "", nil
+            end
             return nil, nil
         end
         file.cursor = file.cursor + #data
@@ -254,8 +243,6 @@ function fs.read(file, len)
     elseif file.kind == "pipe" then
         ---@cast file KOCOS.PipeFile
         return fs.read(file.input, len)
-    elseif file.kind == "event" then
-        return nil, nil -- allowed
     end
     return nil, "bad file"
 end
@@ -266,6 +253,7 @@ end
 ---@return integer?, string
 function fs.seek(file, whence, offset)
     pcall(file.events.push, "seek", whence, offset)
+    -- TODO: implement
     return nil, "bad file"
 end
 
@@ -311,16 +299,4 @@ KOCOS.log("Loaded filesystem")
 KOCOS.defer(function()
     globalTranslation[""] = assert(fs.driverFor(KOCOS.defaultRoot), "MISSING ROOTFS DRIVER OH NO")
     KOCOS.log("Mounted default root")
-
-    KOCOS.logAll(fs.resolve("/home/user/data/../etc/conf/stuff/.../usr"))
-    local f = assert(fs.open("/kernel.lua", "r"))
-    local data = ""
-    while true do
-        local chunk, err = fs.read(f, math.huge)
-        if err then error(err) end
-        if not chunk then break end
-        data = data .. chunk
-    end
-    KOCOS.log("%s (%d bytes)", data, #data)
-    fs.close(f)
 end, 3)

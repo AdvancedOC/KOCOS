@@ -104,6 +104,23 @@ end
 
 KOCOS.thread = thread
 
+---@alias KOCOS.ResourceKind "file"|"lock"|"event"
+
+---@class KOCOS.Resource
+---@field kind KOCOS.ResourceKind
+
+---@class KOCOS.FileResource: KOCOS.Resource
+---@field kind "file"
+---@field file KOCOS.File
+
+---@class KOCOS.LockResource: KOCOS.Resource
+---@field kind "lock"
+---@field lock KOCOS.Lock
+
+---@class KOCOS.EventResource: KOCOS.Resource
+---@field kind "event"
+---@field event KOCOS.EventSystem
+
 ---@class KOCOS.Process
 ---@field ring number
 ---@field cmdline string
@@ -117,6 +134,7 @@ KOCOS.thread = thread
 ---@field threads {[integer]: KOCOS.Thread}
 ---@field children {[integer]: KOCOS.Process}
 ---@field modules {[string]: string}
+---@field resources {[integer]: KOCOS.Resource}
 local process = {}
 process.__index = process
 
@@ -128,6 +146,18 @@ process.lpid = 0
 process.nextThreads = {}
 ---@type KOCOS.Thread[]
 process.currentThreads = {}
+
+---@class KOCOS.Loader
+---@field check fun(proc: KOCOS.Process, path: string): boolean, any
+---@field load fun(proc: KOCOS.Process, data: any)
+
+---@type KOCOS.Loader[]
+process.loaders = {}
+
+---@param loader KOCOS.Loader
+function process.addLoader(loader)
+    table.insert(process.loaders, loader)
+end
 
 local function rawSpawn(init, config)
     config = config or {}
@@ -209,11 +239,21 @@ local function rawSpawn(init, config)
     proc.namespace = namespace
     proc.threads = {}
     proc.modules = {}
+    proc.resources = {}
 
     if type(init) == "function" then
         proc:attach(init)
     elseif type(init) == "string" then
-        error("loading executables not yet handled")
+        local loaded = false
+        for _, loader in ipairs(process.loaders) do
+            local ok, data = loader.check(proc, init)
+            if ok then
+                loader.load(proc, data)
+                loaded = true
+                break
+            end
+        end
+        assert(loaded, "missing loader")
     end
 
     process.procs[pid] = proc
@@ -250,8 +290,68 @@ function process.byPid(pid)
     return process.procs[pid]
 end
 
-function process.kill(proc)
-    -- TODO: implement
+function process:kill()
+    for _, thread in pairs(self.threads) do
+        thread:kill("process terminated", "")
+    end
+
+    for _, resource in pairs(self.resources) do
+        process.closeResource(resource)
+    end
+
+    if self.parent then
+        local parent = process.byPid(self.parent)
+        if parent then
+            parent.children[self.pid] = nil
+        end
+    end
+    process.procs[self.pid] = nil
+end
+
+---@param resource KOCOS.Resource
+---@param n? integer
+function process.retainResource(resource, n)
+    n = n or 1
+    if resource.kind == "file" then
+        ---@cast resource KOCOS.FileResource
+        KOCOS.fs.retain(resource.file, n)
+    end
+end
+
+---@return integer
+function process:newFD()
+    local fd = 3
+    while self.resources[fd] do fd = fd + 1 end
+    return fd
+end
+
+---@param resource KOCOS.Resource
+---@return integer
+function process:moveResource(resource)
+    local fd = process:newFD()
+    self.resources[fd] = resource
+    return fd
+end
+
+---@param resource KOCOS.Resource
+---@return integer
+function process:giveResource(resource)
+    -- if OOM, we're still good!!!!
+    local fd = process:moveResource(resource)
+    local ok, err = pcall(process.retainResource, resource)
+    if not ok then
+        self.resources[fd] = nil -- Nope, bye
+        error(err)
+    end
+    return fd
+end
+
+---@param resource KOCOS.Resource
+function process.closeResource(resource)
+    if resource.kind == "file" then
+        ---@cast resource KOCOS.FileResource
+        KOCOS.fs.close(resource.file)
+    end
 end
 
 function process.run()
@@ -266,6 +366,28 @@ function process.run()
     process.currentThreads = process.nextThreads
     process.nextThreads = {}
 end
+
+process.addLoader({
+    check = function (proc, path)
+        local f = assert(KOCOS.fs.open(path, "r"))
+        local data = ""
+        while true do
+            local chunk, err = KOCOS.fs.read(f, math.huge)
+            if err then
+                KOCOS.fs.close(f)
+                error(err)
+            end
+            if not chunk then break end
+            data = data .. chunk
+        end
+        KOCOS.fs.close(f)
+        local fun = load(data, "=" .. (proc.args[0] or path), "bt", proc.namespace)
+        return fun ~= nil, fun
+    end,
+    load = function (proc, data)
+        proc:attach(data, "main")
+    end,
+})
 
 KOCOS.process = process
 

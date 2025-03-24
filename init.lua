@@ -29,22 +29,35 @@ tty:clear()
 
 KOCOS.log("Main OS boot")
 
-local printingLogsProcess = assert(KOCOS.process.spawn())
+
+_G.printingLogsProcess = assert(KOCOS.process.spawn())
 printingLogsProcess:attach(function()
     while true do
+        local didSmth = false
         if KOCOS.event.queued("klog") then
             local _, msg, time = KOCOS.event.pop("klog")
             tty:print("[LOG   %3.2f] %s\n", time, msg)
+            didSmth = true
         end
         if KOCOS.event.queued("kpanic") then
             local _, msg, time = KOCOS.event.pop("kpanic")
             tty:print("[PANIC %3.2f] %s\n", time, msg)
+            didSmth = true
+        end
+        if not (didSmth or KOCOS.hasDeferred()) then
+            computer.beep()
+            KOCOS.process.kill(_G.printingLogsProcess)
+            break
         end
         coroutine.yield()
     end
 end)
 KOCOS.log("Created log process")
 
-printingLogsProcess.events.listen(KOCOS.logAll)
+KOCOS.defer(function()
+    KOCOS.log("Finished boot")
+    _G.ttyProcess = assert(KOCOS.process.spawn("/basicTTY.lua"))
+    _G.ttyProcess.events.listen(KOCOS.logAll)
+end, -math.huge)
 
 KOCOS.loop()
