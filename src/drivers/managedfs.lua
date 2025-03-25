@@ -68,3 +68,21 @@ function managedfs:mkdir(path)
 end
 
 KOCOS.fs.addDriver(managedfs)
+
+KOCOS.fs.addPartitionParser(function(parser)
+    if parser.type == "filesystem" then
+        ---@type KOCOS.Partition[]
+        local parts = {
+            {
+                startByte = 0,
+                byteSize = math.huge,
+                kind = "root",
+                name = parser.getLabel(),
+                uuid = parser.address,
+                storedKind = "root",
+            },
+        }
+
+        return parts, "managed"
+    end
+end)

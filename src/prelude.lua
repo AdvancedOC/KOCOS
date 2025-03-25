@@ -13,6 +13,8 @@ end
 
 ---@type string
 KOCOS.defaultRoot = KOCOS.default(KOCOS_CONFIG.rootfs, computer.getBootAddress())
+---@type string?
+KOCOS.rootPart = KOCOS.default(KOCOS_CONFIG.rootfsPartition, nil)
 KOCOS.allowGreenThreads = KOCOS.default(KOCOS_CONFIG.allowGreenThreads, true)
 -- insecure will overwrite the ring to 0 for all processes
 KOCOS.insecure = KOCOS.default(KOCOS_CONFIG.insecure, false)
