@@ -2,6 +2,7 @@ local rootfs = computer.getBootAddress()
 
 local config = {
     rootfs = rootfs,
+    init = "/basicTTY.lua",
 }
 
 -- Will be overwritten by KOCOS anyways
@@ -58,8 +59,6 @@ KOCOS.log("Created log process")
 
 KOCOS.defer(function()
     KOCOS.log("Finished boot")
-    _G.ttyProcess = assert(KOCOS.process.spawn("/basicTTY.lua"))
-    _G.ttyProcess.events.listen(KOCOS.logAll)
 end, -math.huge)
 
 KOCOS.loop()

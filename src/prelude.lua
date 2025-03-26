@@ -18,7 +18,8 @@ KOCOS.rootPart = KOCOS.default(KOCOS_CONFIG.rootfsPartition, nil)
 KOCOS.allowGreenThreads = KOCOS.default(KOCOS_CONFIG.allowGreenThreads, true)
 -- insecure will overwrite the ring to 0 for all processes
 KOCOS.insecure = KOCOS.default(KOCOS_CONFIG.insecure, false)
-KOCOS.init = KOCOS.default(KOCOS_CONFIG.init, "/sbin/init")
+---@type string?
+KOCOS.init = KOCOS.default(KOCOS_CONFIG.init, "/sbin/init.lua")
 KOCOS.maxEventBacklog = KOCOS.default(KOCOS_CONFIG.maxEventBacklog, 16)
 KOCOS.rebootOnCrash = KOCOS.default(KOCOS_CONFIG.rebootOnCrash, true)
 
@@ -127,4 +128,11 @@ if 1<0 then
     ---@param sys string
     ---@return ...
     function syscall(sys, ...) end
+end
+
+if KOCOS.init then
+    KOCOS.defer(function()
+        KOCOS.log("Running " .. KOCOS.init)
+        assert(KOCOS.process.spawn(KOCOS.init))
+    end, 0)
 end

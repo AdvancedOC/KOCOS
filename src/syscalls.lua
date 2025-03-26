@@ -334,11 +334,76 @@ function syscalls.pexit(proc, pid)
 
     local other = KOCOS.process.byPid(pid)
     assert(other, "bad pid")
-    if pid == proc.pid or proc:isDescendant(pid) then
+    if pid == proc.pid or proc:isDescendant(pid) or proc.ring < 2 then
         other:kill()
     else
         error("permission denied")
     end
+end
+
+function syscalls.pspawn(proc, init, config)
+    assert(type(init) == "string", "bad init path")
+    assert(type(config) == "table", "bad config")
+    local data = {
+        ring = config.ring or proc.ring,
+        cmdline = config.cmdline or init,
+        args = table.copy(config.args) or {[0]=init},
+        env = table.copy(config.env or proc.env),
+        parent = proc.pid,
+    }
+    local fdMap = table.copy(config.fdMap) or {
+        -- Passing through stdout, stdin, stderr.
+        -- Field is the fd for the child process.
+        [0] = 0,
+        [1] = 1,
+        [2] = 2,
+    }
+    assert(type(data.ring) == "number", "bad ring")
+    assert(data.ring >= proc.ring, "permission denied")
+    assert(type(data.cmdline) == "string", "bad cmdline")
+    assert(type(data.args) == "table", "bad args")
+    data.args[0] = data.args[0] or init
+    for i, arg in pairs(data.args) do
+        assert(type(i) == "number", "args is not array")
+        assert(i >= 0 and i <= #arg, "args is not array")
+        assert(type(arg) == "string", "args are not strings")
+    end
+    assert(type(data.env) == "table", "bad env")
+    for k, v in pairs(data.env) do
+        assert(type(k) == "string", "env name is not string")
+        assert(type(v) == "string", "env value is not string")
+    end
+    assert(type(fdMap) == "table", "bad fdmap")
+    for childFd, parentFd in pairs(fdMap) do
+        assert(type(childFd) == "number", "corrupt fdmap")
+        assert(type(parentFd) == "number", "corrupt fdmap")
+        assert(proc.resources[parentFd], "bad file descriptor in fdmap")
+    end
+    local child = assert(KOCOS.process.spawn(init, data))
+    for childFd, parentFd in pairs(fdMap) do
+        local res = proc.resources[parentFd]
+        -- Pcalled in case of OOM
+        local ok, err = pcall(rawset, child.resources, childFd, res)
+        if not ok then
+            child:kill() -- badly initialized process. Kill it.
+            error(err)
+        end
+        KOCOS.process.retainResource(res)
+    end
+    proc.children[child.pid] = child
+    return child.pid
+end
+
+function syscalls.plisten(proc, event, callback, id)
+    assert(type(event) == "string", "bad event")
+    assert(type(callback) == "function", "bad event")
+    id = proc.events.listen(callback, id)
+    return id
+end
+
+function syscalls.pforget(proc, id)
+    assert(type(id) == "String", "bad callback id")
+    proc.events.forget(id)
 end
 
 -- End of process syscalls

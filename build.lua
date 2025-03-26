@@ -23,7 +23,7 @@ for _, source in ipairs(sources) do
     local file = io.open(source:gsub("%/", package.config:sub(1, 1)), "r")
     if file then
         local src = file:read("*all")
-        code = code .. src .. "\n"
+        code = code .. "do\n" .. src .. "\nend\n"
         io.close(file)
     else
         print("WARNING: Missing file " .. source .. " but continuing anyways (assuming removed feature)")
