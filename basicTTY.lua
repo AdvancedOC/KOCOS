@@ -1,22 +1,107 @@
 local KOCOS = _K
 
-while KOCOS.process.byPid(_OS.printingLogsProcess.pid) do
-    coroutine.yield()
+-- Syscall definitions (no liblua :sad:)
+
+local pnext, pinfo, open, mopen, close, write, read, seek, queued, clear, pop, ioctl, ftype, list
+
+function pnext(pid)
+    local err, npid = syscall("pnext", pid)
+    return npid, err
 end
 
-KOCOS.log("test process")
+function pinfo(pid)
+    local err, info = syscall("pinfo", pid)
+    return info, err
+end
+
+function open(path, mode)
+    local err, fd = syscall("open", path, mode)
+    return fd, err
+end
+
+function mopen(mode, contents, limit)
+    local err, fd = syscall("mopen", mode, contents, limit)
+    return fd, err
+end
+
+function close(fd)
+    local err = syscall("close", fd)
+    return err ~= nil, err
+end
+
+function write(fd, data)
+    local err = syscall("write", fd, data)
+    return err ~= nil, err
+end
+
+function read(fd, len)
+    local err, data = syscall("read", fd, len)
+    return data, err
+end
+
+function seek(fd, whence, off)
+    local err, pos = syscall("seek", fd, whence, off)
+    return pos, err
+end
+
+function queued(fd, ...)
+    local err, isQueued = syscall("queued", fd, ...)
+    return isQueued, err
+end
+
+function clear(fd)
+    local err = syscall("clear", fd)
+    return err ~= nil, err
+end
+
+function pop(fd, ...)
+    return syscall("pop", fd, ...)
+end
+
+function ioctl(fd, action, ...)
+    return syscall("ioctl", fd, action, ...)
+end
+
+function ftype(path)
+    local err, x = syscall("ftype", path)
+    return x, err
+end
+
+function list(path)
+    local err, x = syscall("list", path)
+    return x, err
+end
+
+local logPid
+
+do
+    local attempt = assert(pnext())
+    while true do
+        local info = assert(pinfo(attempt))
+        if info.cmdline == "OS:logproc" then
+            logPid = attempt
+            break
+        end
+        attempt = pnext(attempt)
+        if not attempt then break end
+    end
+end
+
+assert(logPid, "log pid failed")
+
+syscall("pwait", logPid)
 
 local tty = _K.tty.create(_OS.component.gpu, _OS.component.screen)
 
 tty:clear()
 
-local stdout = KOCOS.fs.mopen("r")
-local stdin = KOCOS.fs.mopen("w")
+local stdout = assert(mopen("r", "", math.huge))
+local stdin = assert(mopen("w", "", math.huge))
 
 local commandStdinBuffer = ""
 local function readLine()
     while true do
-        commandStdinBuffer = commandStdinBuffer .. assert(KOCOS.fs.read(stdin, math.huge))
+        commandStdinBuffer = commandStdinBuffer .. assert(read(stdin, math.huge))
         local lineEnd = commandStdinBuffer:find('%\n')
         if lineEnd then
             local line = commandStdinBuffer:sub(1, lineEnd-1)
@@ -30,48 +115,48 @@ end
 
 local function myBeloved()
     while true do
-        KOCOS.fs.write(stdout, "> ")
+        write(stdout, "> ")
         local line = readLine()
 
         -- Basic program that traverses filesystem
 
-        local t = KOCOS.fs.type(line)
+        local t = ftype(line)
 
         if t == "file" then
             -- cat
-            local f = assert(KOCOS.fs.open(line, "r"))
+            local f = assert(open(line, "r"))
             local total = 0
             local maximum = 65536
             while true do
-                local chunk, err = KOCOS.fs.read(f, 1024)
+                local chunk, err = read(f, 1024)
                 if err then error(err) end
                 if not chunk then break end
                 total = total + #chunk
                 if total >= maximum then
-                    KOCOS.fs.write(stdout, "...")
+                    write(stdout, "...")
                     break
                 end
-                KOCOS.fs.write(stdout, chunk)
+                write(stdout, chunk)
                 coroutine.yield()
             end
-            KOCOS.fs.close(f)
-            KOCOS.fs.write(stdout, "\n")
+            close(f)
+            write(stdout, "\n")
         elseif t == "directory" then
             -- ls
-            local files = assert(KOCOS.fs.list(line))
+            local files = assert(list(line))
             for i=1,#files do
                 local file = files[i]
-                KOCOS.fs.write(stdout, file .. "\n")
+                write(stdout, file .. "\n")
             end
         else
-            KOCOS.fs.write(stdout, "Error: Not a file\n")
+            write(stdout, "Error: Not a file\n")
         end
 
         coroutine.yield()
     end
 end
 
-_OS.ttyProcess:attach(myBeloved, "command")
+syscall("attach", myBeloved, "command")
 
 local function isEscape(char)
     return char < 0x20 or (char >= 0x7F and char <= 0x9F)
@@ -79,16 +164,15 @@ end
 
 local inputBuffer
 while true do
-    while stdout.events.queued("write") do
-        local data = stdout.buffer
-        stdout.buffer = ""
-        stdout.cursor = 0
-        stdout.events.pop("write")
+    while queued(stdout, "write") do
+        local _, data = ioctl(stdout, "fetch")
+        ioctl(stdout, "clear")
+        pop(stdout, "write")
         tty:write(data)
         coroutine.yield()
     end
 
-    if stdin.events.queued("read") and not inputBuffer then
+    if queued(stdin, "read") and not inputBuffer then
         inputBuffer = ""
     end
 
@@ -99,9 +183,10 @@ while true do
             local backspace = 0x0E
             local enter = 0x1C
             if code == enter then
-                stdin.events.clear()
-                stdin.buffer = inputBuffer .. "\n"
-                stdin.cursor = 0
+                clear(stdin)
+                ioctl(stdin, "clear")
+                write(stdin, inputBuffer .. "\n")
+                seek(stdin, "set", 0)
                 tty:write('\n')
                 inputBuffer = nil
             elseif code == backspace then

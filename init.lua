@@ -30,7 +30,9 @@ tty:clear()
 KOCOS.log("Main OS boot")
 
 
-_G.printingLogsProcess = assert(KOCOS.process.spawn())
+_G.printingLogsProcess = assert(KOCOS.process.spawn(nil, {
+    cmdline = "OS:logproc",
+}))
 printingLogsProcess:attach(function()
     while true do
         local didSmth = false

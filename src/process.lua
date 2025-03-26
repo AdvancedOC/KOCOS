@@ -1,6 +1,5 @@
 ---@class KOCOS.Lock
 ---@field locked boolean
-
 local lock = {}
 lock.__index = lock
 
@@ -8,8 +7,19 @@ function lock.create()
     return setmetatable({locked = false}, lock)
 end
 
-function lock:lock()
+function lock:tryLock()
+    if self.locked then return false end
+    self.locked = true
+    return true
+end
+
+---@param timeout integer
+function lock:lock(timeout)
+    local deadline = computer.uptime() + timeout
     while self.locked do
+        if computer.uptime() > deadline then
+            error("timeout")
+        end
         coroutine.yield()
     end
     self.locked = true
@@ -41,6 +51,7 @@ function thread.create(func, name, process, id)
         nextTime = 0,
     }, thread)
     table.insert(KOCOS.process.nextThreads, t)
+    return t
 end
 
 function thread:dead()
@@ -162,7 +173,7 @@ end
 local function rawSpawn(init, config)
     config = config or {}
 
-    local ring = config.ring or 0
+    local ring = math.floor(config.ring or 0)
     local cmdline = config.cmdline or ""
     local args = config.args or {}
     local env = config.env or {}
@@ -180,7 +191,7 @@ local function rawSpawn(init, config)
         }
     end
     namespace.syscall = function(name, ...)
-        local sys = KOCOS.syscall[name]
+        local sys = KOCOS.syscalls[name]
         if not sys then return "bad syscall" end
         local t = {pcall(sys, proc, ...)}
         if t[1] then
@@ -276,6 +287,7 @@ function process:attach(func, name)
 
     local t = thread.create(func, name, self.pid, id)
     self.threads[id] = t
+    return t
 end
 
 function process:raise(name, ...)
@@ -328,7 +340,7 @@ end
 ---@param resource KOCOS.Resource
 ---@return integer
 function process:moveResource(resource)
-    local fd = process:newFD()
+    local fd = self:newFD()
     self.resources[fd] = resource
     return fd
 end
@@ -337,13 +349,25 @@ end
 ---@return integer
 function process:giveResource(resource)
     -- if OOM, we're still good!!!!
-    local fd = process:moveResource(resource)
+    local fd = self:moveResource(resource)
     local ok, err = pcall(process.retainResource, resource)
     if not ok then
         self.resources[fd] = nil -- Nope, bye
         error(err)
     end
     return fd
+end
+
+---@param pid integer
+---@return boolean
+function process:isDescendant(pid)
+    if self.children[pid] then return true end
+
+    for _, child in pairs(self.children) do
+        if child:isDescendant(pid) then return true end
+    end
+
+    return false
 end
 
 ---@param resource KOCOS.Resource

@@ -67,6 +67,14 @@ function managedfs:mkdir(path)
     return self.disk.makeDirectory(path)
 end
 
+function managedfs:ioctl(fd, action, ...)
+    if action == "disk" then
+        return self.disk.address
+    end
+
+    error("unsupported")
+end
+
 KOCOS.fs.addDriver(managedfs)
 
 KOCOS.fs.addPartitionParser(function(parser)
@@ -80,6 +88,7 @@ KOCOS.fs.addPartitionParser(function(parser)
                 name = parser.getLabel(),
                 uuid = parser.address,
                 storedKind = "root",
+                readonly = parser.isReadOnly(),
             },
         }
 

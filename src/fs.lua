@@ -253,8 +253,53 @@ end
 ---@return integer?, string
 function fs.seek(file, whence, offset)
     pcall(file.events.push, "seek", whence, offset)
+
+    if file.kind == "memory" then
+        ---@cast file KOCOS.MemoryFile
+        if whence == "set" then
+            file.cursor = offset
+        elseif whence == "cur" then
+            file.cursor = file.cursor + offset
+        elseif whence == "end" then
+            file.cursor = #file.buffer - offset
+        end
+        if file.cursor < 0 then file.cursor = 0 end
+        if file.cursor > #file.buffer then file.cursor = #file.buffer end
+        return file.cursor, ""
+    end
+
+    if file.kind == "disk" then
+        ---@cast file KOCOS.DiskFile
+        return file.manager:seek(file.fd, whence, offset)
+    end
+
     -- TODO: implement
     return nil, "bad file"
+end
+
+---@param file KOCOS.File
+---@param action string
+---@return ...
+function fs.ioctl(file, action, ...)
+    if file.kind == "memory" then
+        ---@cast file KOCOS.MemoryFile
+        if action == "clear" then
+            file.buffer = ""
+            file.cursor = 0
+            file.events.clear()
+            return true
+        end
+        if action == "fetch" then
+            return file.buffer
+        end
+    end
+
+    if file.kind == "disk" then
+        ---@cast file KOCOS.DiskFile
+        return file.manager:ioctl(file.fd, ...)
+    end
+
+    error("bad file")
 end
 
 ---@param path string
