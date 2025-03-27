@@ -20,8 +20,10 @@ KOCOS.allowGreenThreads = KOCOS.default(KOCOS_CONFIG.allowGreenThreads, true)
 KOCOS.insecure = KOCOS.default(KOCOS_CONFIG.insecure, false)
 ---@type string?
 KOCOS.init = KOCOS.default(KOCOS_CONFIG.init, "/sbin/init.lua")
-KOCOS.maxEventBacklog = KOCOS.default(KOCOS_CONFIG.maxEventBacklog, 16)
+KOCOS.maxEventBacklog = KOCOS.default(KOCOS_CONFIG.maxEventBacklog, 256)
 KOCOS.rebootOnCrash = KOCOS.default(KOCOS_CONFIG.rebootOnCrash, true)
+---@type "standard"|"debug"
+KOCOS.mode = KOCOS.default(KOCOS_CONFIG.mode, "standard")
 
 function KOCOS.logAll(...)
     local t = {...}

@@ -209,6 +209,22 @@ function syscalls.push(proc, fd, name, ...)
     return events.push(name, ...)
 end
 
+---@param name string
+---@param f function
+---@param id? string
+function syscalls.listen(proc, name, f, id)
+    assert(type(name) == "string", "bad event name")
+    assert(type(f) == "function", "bad callback")
+    assert(type(id) == "string" or id == nil, "bad id")
+    return proc.events.listen(f, id)
+end
+
+---@param id string
+function syscalls.forget(proc, id)
+    assert(type(id) == "string", "bad id")
+    proc.events.forget(id)
+end
+
 -- End of event syscalls
 
 -- Thread syscalls
@@ -394,16 +410,22 @@ function syscalls.pspawn(proc, init, config)
     return child.pid
 end
 
-function syscalls.plisten(proc, event, callback, id)
-    assert(type(event) == "string", "bad event")
-    assert(type(callback) == "function", "bad event")
-    id = proc.events.listen(callback, id)
-    return id
-end
+---@param pid integer
+---@param event string
+function syscalls.psignal(proc, pid, event, ...)
+    -- we allow shared memory like this btw
+    -- also shared functions
+    -- can be used to optimize a lot
+    assert(type(pid) == "integer", "bad pid")
+    assert(type(event) == "string", "bad event name")
+    local target = KOCOS.process.procs[pid]
+    assert(target, "bad pid")
 
-function syscalls.pforget(proc, id)
-    assert(type(id) == "String", "bad callback id")
-    proc.events.forget(id)
+    if target.ring < proc.ring then
+        error("permission denied")
+    end
+
+    target.events.push(event, ...)
 end
 
 -- End of process syscalls

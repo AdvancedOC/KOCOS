@@ -76,6 +76,9 @@ end
 
 function thread:kill(msg, trace)
     if self:dead() then return end
+    if KOCOS.mode == "debug" then
+        KOCOS.logAll(self.name, msg, trace)
+    end
     msg = msg or "thread killed"
     trace = trace or debug.traceback(self.coro)
     self.mode = "dead" -- End game

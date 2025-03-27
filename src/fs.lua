@@ -202,6 +202,13 @@ function fs.write(file, data)
         return file.manager:write(file.fd, data)
     elseif file.kind == "memory" then
         ---@cast file KOCOS.MemoryFile
+        if file.mode == "w" then
+            if (#file.buffer + #data) > file.bufcap then
+                return false, "out of space"
+            end
+            file.buffer = file.buffer .. data
+            return true, ""
+        end
 
         if #file.buffer + #data > file.bufcap then return false, "out of space" end
 
@@ -226,6 +233,16 @@ function fs.read(file, len)
         return file.manager:read(file.fd, len)
     elseif file.kind == "memory" then
         ---@cast file KOCOS.MemoryFile
+        if file.mode == "w" then
+            if len < #file.buffer then
+                local chunk = file.buffer:sub(1, len)
+                file.buffer = file.buffer:sub(len+1)
+                return chunk, nil
+            end
+            local data = file.buffer or ""
+            file.buffer = ""
+            return data, nil
+        end
 
         local data = file.buffer:sub(file.cursor+1, (len ~= math.huge) and file.cursor+len or nil)
         if #data == 0 then
@@ -256,6 +273,9 @@ function fs.seek(file, whence, offset)
 
     if file.kind == "memory" then
         ---@cast file KOCOS.MemoryFile
+        if file.mode == "w" then
+            return nil, "unable to seek stream"
+        end
         if whence == "set" then
             file.cursor = offset
         elseif whence == "cur" then

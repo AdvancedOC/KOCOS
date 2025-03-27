@@ -18,3 +18,18 @@ function string.split(inputstr, sep)
   end
   return t
 end
+
+local memunits = {"B", "KiB", "MiB", "GiB", "TiB"}
+---@param amount number
+---@param spacing? string
+function string.memformat(amount, spacing)
+    spacing = spacing or ""
+    local unit = 1
+    local factor = 1024
+    while unit < #memunits and amount >= factor do
+        unit = unit + 1
+        amount = amount / factor
+    end
+
+    return string.format("%.2f%s%s", amount, spacing, memunits[unit])
+end

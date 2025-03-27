@@ -2,7 +2,7 @@ local KOCOS = _K
 
 -- Syscall definitions (no liblua :sad:)
 
-local pnext, pinfo, open, mopen, close, write, read, seek, queued, clear, pop, ioctl, ftype, list
+local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -39,11 +39,6 @@ function read(fd, len)
     return data, err
 end
 
-function seek(fd, whence, off)
-    local err, pos = syscall("seek", fd, whence, off)
-    return pos, err
-end
-
 function queued(fd, ...)
     local err, isQueued = syscall("queued", fd, ...)
     return isQueued, err
@@ -56,10 +51,6 @@ end
 
 function pop(fd, ...)
     return syscall("pop", fd, ...)
-end
-
-function ioctl(fd, action, ...)
-    return syscall("ioctl", fd, action, ...)
 end
 
 function ftype(path)
@@ -95,7 +86,7 @@ local tty = _K.tty.create(_OS.component.gpu, _OS.component.screen)
 
 tty:clear()
 
-local stdout = assert(mopen("r", "", math.huge))
+local stdout = assert(mopen("w", "", math.huge))
 local stdin = assert(mopen("w", "", math.huge))
 
 local commandStdinBuffer = ""
@@ -164,15 +155,17 @@ end
 
 local inputBuffer
 while true do
-    while queued(stdout, "write") do
-        local _, data = ioctl(stdout, "fetch")
-        ioctl(stdout, "clear")
-        pop(stdout, "write")
+    if queued(stdout, "write") then
+        local data, err = read(stdout, math.huge)
+        if err then tty:write(err) end
+        clear(stdout)
+        assert(data, "no data")
         tty:write(data)
         coroutine.yield()
     end
 
     if queued(stdin, "read") and not inputBuffer then
+        pop(stdin, "read")
         inputBuffer = ""
     end
 
@@ -184,9 +177,7 @@ while true do
             local enter = 0x1C
             if code == enter then
                 clear(stdin)
-                ioctl(stdin, "clear")
                 write(stdin, inputBuffer .. "\n")
-                seek(stdin, "set", 0)
                 tty:write('\n')
                 inputBuffer = nil
             elseif code == backspace then
