@@ -324,6 +324,7 @@ function fs.parentOf(path)
 end
 
 ---@class KOCOS.Partition
+---@field drive table
 ---@field startByte integer
 ---@field byteSize integer
 ---@field name string
@@ -342,10 +343,9 @@ function fs.addPartitionParser(parser)
     table.insert(fs.partitionParsers, parser)
 end
 
----@param uuid string
+---@param drive table
 ---@return KOCOS.Partition[], string
-function fs.getPartitions(uuid)
-    local drive = component.proxy(uuid)
+function fs.getPartitions(drive)
     for i=#fs.partitionParsers,1,-1 do
         local parts, format = fs.partitionParsers[i](drive)
         if parts then
@@ -361,15 +361,12 @@ function fs.addDriver(driver)
     table.insert(fs.drivers, driver)
 end
 
----@param uuid string
 ---@param partition KOCOS.Partition
 ---@return KOCOS.FileSystemDriver?
-function fs.driverFor(uuid, partition)
-    local drive = component.proxy(uuid)
-
+function fs.driverFor(partition)
     for i=#fs.drivers,1,-1 do
         local driver = fs.drivers[i]
-        local manager = driver.create(drive, partition)
+        local manager = driver.create(partition)
         if manager then return manager end
     end
 end
@@ -380,7 +377,7 @@ KOCOS.log("Loaded filesystem")
 
 KOCOS.defer(function()
     local root = KOCOS.defaultRoot
-    local parts = fs.getPartitions(root)
+    local parts = fs.getPartitions(component.proxy(root))
     ---@type KOCOS.Partition?
     local rootPart
 
@@ -393,6 +390,6 @@ KOCOS.defer(function()
     end
 
     assert(rootPart, "missing root partition on " .. root)
-    globalTranslation[""] = assert(fs.driverFor(root, rootPart.startByte, rootPart.byteSize), "MISSING ROOTFS DRIVER OH NO")
+    globalTranslation[""] = assert(fs.driverFor(rootPart), "MISSING ROOTFS DRIVER OH NO")
     KOCOS.log("Mounted default root")
 end, 3)

@@ -140,6 +140,7 @@ function KOCOS.gpt(drive)
                     storedKind = partGUID,
                     kind = kind,
                     readonly = readonly,
+                    drive = drive,
                 }
 
                 table.insert(partitions, part)

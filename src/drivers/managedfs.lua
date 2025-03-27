@@ -1,11 +1,12 @@
 local managedfs = {}
 managedfs.__index = managedfs
 
-function managedfs.create(disk)
-    if disk.type ~= "filesystem" then return nil end
+---@param partition KOCOS.Partition
+function managedfs.create(partition)
+    if partition.drive.type ~= "filesystem" then return nil end
 
     return setmetatable({
-        disk = disk,
+        disk = partition.drive,
     }, managedfs)
 end
 
@@ -89,6 +90,7 @@ KOCOS.fs.addPartitionParser(function(parser)
                 uuid = parser.address,
                 storedKind = "root",
                 readonly = parser.isReadOnly(),
+                drive = parser,
             },
         }
 
