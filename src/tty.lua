@@ -1,6 +1,8 @@
 local tty = {}
 tty.__index = tty
 
+local lib = unicode or string
+
 function tty.create(gpu, screen)
     gpu.bind(screen.address)
     local w, h = gpu.maxResolution()
@@ -12,6 +14,7 @@ function tty.create(gpu, screen)
         y = 1,
         w = w,
         h = h,
+        buffer = "",
     }, tty)
 end
 
@@ -21,24 +24,32 @@ function tty:clear()
     self.gpu.fill(1, 1, self.w, self.h, " ")
 end
 
+function tty:flush()
+        self.gpu.set(self.x - #self.buffer, self.y, self.buffer)
+        self.buffer = ""
+end
+
 function tty:put(c)
     if self.y > self.h then
+        self:flush()
         self.y = self.h
         self.gpu.copy(1, 1, self.w, self.h, 0, -1)
         self.gpu.fill(1, self.h, self.w, 1, " ")
     end
 
     if c == "\n" then
+        self:flush()
         self.y = self.y + 1
         self.x = 1
     elseif c == "\t" then
         self.x = self.x + 4
     else
-        self.gpu.set(self.x, self.y, c)
+        self.buffer = self.buffer .. c
         self.x = self.x + 1
     end
 
     if self.x > self.w then
+        self:flush()
         self.x = 1
         self.y = self.y + 1
     end
@@ -63,11 +74,11 @@ function tty:unput(c)
     end
 end
 
-local lib = unicode or string
 function tty:write(data)
     for i=1,lib.len(data) do
         self:put(lib.sub(data, i, i))
     end
+    self:flush()
 end
 
 function tty:unwrite(data)
