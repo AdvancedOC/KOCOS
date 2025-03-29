@@ -1,27 +1,3 @@
--- Designed to be loadable in a Lua REPL for testing
-local drive = {}
-if io then
-    KOCOS = {}
-
-    drive.type = "drive"
-
-    local devFile = assert(io.open("/dev/nvme1n1", "r")) -- will need to open as root
-    if devFile.setvbuf then
-        devFile:setvbuf("no")
-    end
-
-    function drive.getSectorSize()
-        return 512 -- trust me bro
-    end
-
-    function drive.readByte(pos)
-        devFile:seek("set", pos)
-        -- Byte byte userspace buffering
-        local b = devFile:read(1)
-        return string.byte(b)
-    end
-end
-
 -- Little endian my beloved
 local function readNum(drive, pos, size)
     local n = 0
@@ -30,7 +6,7 @@ local function readNum(drive, pos, size)
     for i=1,size do
         local byte = drive.readByte(pos+i-1)
         n = n + byte * m
-        m = m * 0x100
+        m = m * 256
     end
     return n
 end
@@ -61,7 +37,6 @@ local function readGUID(drive, pos)
         local lower = byte % 16 + 1
         base16d = base16d .. digits4:sub(upper, upper) .. digits4:sub(lower, lower)
     end
-    print(#base16d)
 
     local guid = base16d:sub(1, 8) .. "-"
         .. base16d:sub(9, 12) .. "-"
@@ -98,8 +73,6 @@ function KOCOS.gpt(drive)
     local partitionEntrySize = readNum(drive, off + 84, 4)
 
     off = startOfPartitionsLBA * blockSize
-
-    print(diskGUID, startOfPartitionsLBA, partitionCount, partitionEntrySize)
 
     local visited = {}
     local partitions = {}
@@ -153,12 +126,4 @@ function KOCOS.gpt(drive)
     return partitions, "gpt"
 end
 
-if io then
-    local parts = assert(KOCOS.gpt(drive), "it failed no")
-    print("PARTITIONS")
-    for _, part in ipairs(parts) do
-        print(part.uuid, part.kind, part.startByte, part.byteSize, part.readonly and "r" or "rw", part.name)
-    end
-else
-    KOCOS.fs.addPartitionParser(KOCOS.gpt)
-end
+KOCOS.fs.addPartitionParser(KOCOS.gpt)
