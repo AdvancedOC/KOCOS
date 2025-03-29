@@ -110,7 +110,7 @@ function KOCOS.gpt(drive)
                     startByte = startLBA * blockSize,
                     byteSize = (endLBA - startLBA + 1) * blockSize,
                     ---@diagnostic disable-next-line
-                    storedKind = partGUID,
+                    storedKind = typeGUID,
                     kind = kind,
                     readonly = readonly,
                     drive = drive,
