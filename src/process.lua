@@ -76,7 +76,7 @@ end
 
 function thread:kill(msg, trace)
     if self:dead() then return end
-    if KOCOS.mode == "debug" then
+    if KOCOS.logThreadEvents then
         KOCOS.logAll(self.name, msg, trace)
     end
     msg = msg or "thread killed"
@@ -382,6 +382,10 @@ function process.closeResource(resource)
 end
 
 function process.run()
+    if #process.currentThreads == 0 then
+        process.currentThreads = process.nextThreads
+        process.nextThreads = {}
+    end
     for i=1,#process.currentThreads do
         local thread = process.currentThreads[i]
         thread:tick()

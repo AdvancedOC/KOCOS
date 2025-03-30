@@ -5,6 +5,7 @@ local sources = {
     "src/utils.lua",
     "src/event.lua",
     "src/component.lua",
+    "src/testing.lua",
     "src/fs.lua",
     "src/process.lua",
     "src/network.lua",
@@ -14,6 +15,7 @@ local sources = {
     "src/drivers/devfs.lua",
     "src/drivers/managedfs.lua",
     "src/drivers/gpt.lua",
+    "src/drivers/okffs.lua",
 }
 
 local out = arg[1] or "kernel.lua"

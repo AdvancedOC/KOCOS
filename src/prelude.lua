@@ -22,8 +22,8 @@ KOCOS.insecure = KOCOS.default(KOCOS_CONFIG.insecure, false)
 KOCOS.init = KOCOS.default(KOCOS_CONFIG.init, "/sbin/init.lua")
 KOCOS.maxEventBacklog = KOCOS.default(KOCOS_CONFIG.maxEventBacklog, 256)
 KOCOS.rebootOnCrash = KOCOS.default(KOCOS_CONFIG.rebootOnCrash, true)
----@type "standard"|"debug"
-KOCOS.mode = KOCOS.default(KOCOS_CONFIG.mode, "standard")
+KOCOS.logThreadEvents = KOCOS.default(KOCOS_CONFIG.logThreadEvents, false)
+KOCOS.selfTest = KOCOS.default(KOCOS_CONFIG.selfTest, computer.totalMemory() >= 2^19)
 
 function KOCOS.logAll(...)
     local t = {...}
@@ -42,6 +42,13 @@ function KOCOS.log(fmt, ...)
     local s = string.format(fmt, ...)
     KOCOS.event.push("klog", s, time)
     oceLog(s)
+end
+
+function KOCOS.logPanic(fmt, ...)
+    local time = computer.uptime()
+    local s = string.format(fmt, ...)
+    KOCOS.event.push("kpanic", s, time)
+    oceLog("PANIC: " .. s)
 end
 
 local deferred = {}
@@ -107,9 +114,9 @@ function KOCOS.loop()
     local lastPanicked = false
     while true do
         local panicked = false
-        panicked = not KOCOS.pcall(KOCOS.runDeferred, 0.1)
         panicked = panicked or not KOCOS.pcall(KOCOS.event.process, 0.05)
         panicked = panicked or not KOCOS.pcall(KOCOS.process.run)
+        panicked = panicked or not KOCOS.pcall(KOCOS.runDeferred, 0.05)
         if lastPanicked and panicked then
             assert(pcall(KOCOS.bsod))
             if KOCOS.rebootOnCrash then

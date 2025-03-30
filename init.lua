@@ -3,7 +3,7 @@ local rootfs = computer.getBootAddress()
 local config = {
     rootfs = rootfs,
     init = "/basicTTY.lua",
-    mode = "debug",
+    logThreadEvents = true,
 }
 
 -- Will be overwritten by KOCOS anyways
@@ -37,16 +37,16 @@ _G.printingLogsProcess = assert(KOCOS.process.spawn(nil, {
     cmdline = "OS:logproc",
 }))
 printingLogsProcess:attach(function()
+    local lastYield = computer.uptime()
     while true do
         local didSmth = false
-        if KOCOS.event.queued("klog") then
-            local _, msg, time = KOCOS.event.pop("klog")
-            tty:print("[LOG   %3.2f] %s\n", time, msg)
-            didSmth = true
-        end
-        if KOCOS.event.queued("kpanic") then
-            local _, msg, time = KOCOS.event.pop("kpanic")
-            tty:print("[PANIC %3.2f] %s\n", time, msg)
+        if KOCOS.event.queued("klog", "kpanic") then
+            local e, msg, time = KOCOS.event.pop("klog", "kpanic")
+            if e == "klog" then
+                tty:print("[LOG   %3.2f] %s\n", time, msg)
+            elseif e == "kpanic" then
+                tty:print("[PANIC %3.2f] %s\n", time, msg)
+            end
             didSmth = true
         end
         if not (didSmth or KOCOS.hasDeferred()) then
@@ -60,7 +60,12 @@ printingLogsProcess:attach(function()
         local info = string.format("Memory: %s / %s (%.2f%%)", string.memformat(used), string.memformat(total), used / total * 100)
         tty.gpu.fill(1, h, w, 1, " ")
         tty.gpu.set(w-#info, h, info)
-        coroutine.yield()
+        local now = computer.uptime()
+        local waiting = not KOCOS.event.queued("klog") and not KOCOS.event.queued("kpanic")
+        if now - lastYield > 3 or waiting then
+            lastYield = now
+            coroutine.yield()
+        end
     end
 end)
 KOCOS.log("Created log process")
