@@ -94,10 +94,12 @@ function KOCOS.gpt(drive)
                 end
 
                 local kind = "user"
-                if typeGUID == "C12A7328-F81F-11D2-BA4B-00A0C93EC93B" then
+                if typeGUID == "C12A7328-F81F-11D2-BA4B-00A0C93EC93B" then -- actually EFI BOOT
                     kind = "boot"
-                elseif typeGUID == "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709" then
+                elseif typeGUID == "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709" then -- actually Linux amd64 root
                     kind = "root"
+                elseif typeGUID == "9E1A2D38-C612-4316-AA26-8B49521E5A8B" then -- actually PReP boot
+                    kind = "reserved"
                 end
 
                 local readonly = bit32.btest(attrs, (2^59))

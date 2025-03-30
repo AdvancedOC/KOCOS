@@ -14,6 +14,7 @@ okffs.__index = okffs
 
 ---@param partition KOCOS.Partition
 function okffs.create(partition)
+    if partition.kind == "reserved" then return end -- fast ass skip
     if partition.drive.type ~= "drive" then return end
     local sectorSize = partition.drive.getSectorSize()
     local manager = setmetatable({

@@ -350,7 +350,7 @@ end
 ---@field name string
 ---@field uuid string
 ---@field storedKind string
----@field kind "boot"|"root"|"user"
+---@field kind "boot"|"root"|"user"|"reserved"
 ---@field readonly boolean
 
 ---@alias KOCOS.PartitionParser fun(component: table): KOCOS.Partition[]?, string?
