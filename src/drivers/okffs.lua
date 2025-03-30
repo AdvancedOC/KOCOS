@@ -30,6 +30,7 @@ function okffs.create(partition)
     return manager
 end
 
+---@return string
 function okffs:readSectorBytes(sector, off, len)
     local sec = assert(self.drive.readSector(sector+self.start))
     local data = sec:sub(off+1, off+len)
@@ -126,12 +127,155 @@ function okffs:allocBlock()
     return block
 end
 
+local NULL_BLOCK = 0
+
 ---@param block integer
 function okffs:freeBlock(block)
+    if block == 0 then return end -- Freeing NULL is fine
     self:writeUint24(block, 0, self.freeList)
     self.freeList = block
     self.activeBlockCount = self.activeBlockCount - 1
     self:saveState()
+end
+
+function okffs:allocDirectoryBlock()
+    local block = self:allocBlock()
+    self:writeUint24(block, 0, 0) -- Next
+    self:writeUint24(block, 3, 0) -- File count
+    return block
+end
+
+function okffs:allocFileBlock()
+    local block = self:allocBlock()
+    self:writeUint24(block, 0, 0) -- Next
+    self:writeUint24(block, 3, 0) -- Used bytes
+    return block
+end
+
+---@type {[KOCOS.FileType]: integer}
+local typeMap = {
+    directory = 0,
+    file = 1,
+    missing = 2,
+}
+
+---@type {[integer]: KOCOS.FileType}
+local invTypeMap = {
+    [0] = "directory",
+    "file",
+    "missing",
+}
+
+-- 60 byte name, 1 byte type, 3 byte block
+local DIR_ENTRY_SIZE = 64
+
+---@param dirBlock integer
+---@param name string
+---@param type KOCOS.FileType
+---@param block integer
+function okffs:addDirectoryEntry(dirBlock, name, type, block)
+    while true do
+        local len = self:readUint24(dirBlock, 3)
+        if (len+2)*DIR_ENTRY_SIZE > self.sectorSize then
+            local next = self:readUint24(dirBlock, 0)
+            if next == 0 then
+                next = self:allocDirectoryBlock()
+                self:writeUint24(dirBlock, 0, next)
+            end
+            dirBlock = next
+        else
+            -- We have the space
+            len = len + 1
+            self:writeUint24(dirBlock, 3, len)
+            local idx = len
+            local off = idx * DIR_ENTRY_SIZE
+            self:writeSectorBytes(dirBlock, off, (name .. "\0"):sub(1, 60))
+            self:writeSectorBytes(dirBlock, off + 60, string.char(typeMap[type]))
+            self:writeUint24(dirBlock, off + 61, block)
+            break
+        end
+    end
+end
+
+---@param dirBlock integer
+---@param name string
+---@return integer?, KOCOS.FileType
+function okffs:queryDirectoryEntry(dirBlock, name)
+    while true do
+        if dirBlock == NULL_BLOCK then break end
+        local nextBlock = self:readUint24(dirBlock, 0)
+        local len = self:readUint24(dirBlock, 3)
+
+        for i=1,len do
+            local off = i * DIR_ENTRY_SIZE
+            local entry = self:readSectorBytes(dirBlock, off, 60)
+            local terminator = string.find(entry, "\0", nil, true)
+            if terminator then
+                entry = entry:sub(1, terminator-1)
+            end
+            if entry == name then
+                -- WE FOUND IT!!!!!
+                local type = invTypeMap[self:readSectorBytes(dirBlock, off+60, 1):byte()]
+                local block = self:readUint24(dirBlock, off+61)
+                if block == NULL_BLOCK then
+                    if type == "directory" then
+                        block = self:allocDirectoryBlock()
+                    else
+                        block = self:allocFileBlock()
+                    end
+                    self:writeUint24(dirBlock, off+61, block)
+                end
+                return block, type
+            end
+        end
+        dirBlock = nextBlock
+    end
+    return nil, "missing"
+end
+
+---@param dirBlock integer
+---@return string[]
+function okffs:listDirectoryEntries(dirBlock)
+    local all = {}
+    while true do
+        -- Yup, this works, fuck you
+        if dirBlock == NULL_BLOCK then break end
+        local nextBlock = self:readUint24(dirBlock, 0)
+        local len = self:readUint24(dirBlock, 3)
+
+        for i=1,len do
+            local off = i * DIR_ENTRY_SIZE
+            local name = self:readSectorBytes(dirBlock, off, 60)
+            local terminator = string.find(name, "\0", nil, true)
+            if terminator then
+                name = name:sub(1, terminator-1)
+            end
+            local type = self:readSectorBytes(dirBlock, off+60, 1):byte()
+            if invTypeMap[type] == "directory" then
+                name = name .. "/"
+            end
+            table.insert(all, name)
+        end
+        dirBlock = nextBlock
+    end
+    return all
+end
+
+---@return integer?, KOCOS.FileType
+function okffs:pathInfo(path)
+    if self.root == 0 then
+        self.root = self:allocDirectoryBlock()
+        self:saveState()
+    end
+    return nil, "missing"
+end
+
+function okffs:spaceUsed()
+    return self.activeBlockCount * self.sectorSize
+end
+
+function okffs:spaceTotal()
+    return self.capacity * self.sectorSize
 end
 
 -- OKFFS does not have the concept of readonly files
@@ -161,6 +305,8 @@ KOCOS.test("OKFFS driver", function()
     okffs.format(drive)
 
     local manager = assert(okffs.create(partition), "formatting failed")
+
+    assert(manager:spaceTotal() == drive.getCapacity())
 
     assert(manager.nextFree == 1, "invalid nextfree")
     assert(manager.freeList == 0, "free list should not be allocated")
