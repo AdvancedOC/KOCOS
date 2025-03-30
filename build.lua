@@ -7,6 +7,7 @@ local sources = {
     "src/component.lua",
     "src/fs.lua",
     "src/process.lua",
+    "src/network.lua",
     "src/syscalls.lua",
     "src/tty.lua",
     "src/drivers/procfs.lua",
