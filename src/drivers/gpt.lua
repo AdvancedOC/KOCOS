@@ -81,6 +81,7 @@ function KOCOS.gpt(drive)
         local typeGUID = readGUID(drive, off)
         if typeGUID then
             local partGUID = readGUID(drive, off+16)
+            if partGUID == nil then return end
             if not visited[partGUID] then
                 local startLBA = readNum(drive, off+32, 8)
                 local endLBA = readNum(drive, off+40, 8)
