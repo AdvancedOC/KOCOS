@@ -118,7 +118,7 @@ end
 
 KOCOS.thread = thread
 
----@alias KOCOS.ResourceKind "file"|"lock"|"event"
+---@alias KOCOS.ResourceKind "file"|"lock"|"event"|"socket"
 
 ---@class KOCOS.Resource
 ---@field kind KOCOS.ResourceKind
@@ -134,6 +134,11 @@ KOCOS.thread = thread
 ---@class KOCOS.EventResource: KOCOS.Resource
 ---@field kind "event"
 ---@field event KOCOS.EventSystem
+
+---@class KOCOS.SocketResource: KOCOS.Resource
+---@field kind "socket"
+---@field rc integer
+---@field socket KOCOS.NetworkSocket
 
 ---@class KOCOS.Process
 ---@field ring number
@@ -330,6 +335,9 @@ function process.retainResource(resource, n)
     if resource.kind == "file" then
         ---@cast resource KOCOS.FileResource
         KOCOS.fs.retain(resource.file, n)
+    elseif resource.kind == "socket" then
+        ---@cast resource KOCOS.SocketResource
+        resource.rc = resource.rc + n
     end
 end
 
@@ -378,6 +386,12 @@ function process.closeResource(resource)
     if resource.kind == "file" then
         ---@cast resource KOCOS.FileResource
         KOCOS.fs.close(resource.file)
+    elseif resource.kind == "socket" then
+        ---@cast resource KOCOS.SocketResource
+        resource.rc = resource.rc - 1
+        if resource.rc <= 0 then
+            KOCOS.network.close(resource.socket)
+        end
     end
 end
 

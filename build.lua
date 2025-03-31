@@ -16,6 +16,7 @@ local sources = {
     "src/drivers/managedfs.lua",
     "src/drivers/gpt.lua",
     "src/drivers/okffs.lua",
+    "src/drivers/internet.lua",
 }
 
 local out = arg[1] or "kernel.lua"

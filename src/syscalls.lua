@@ -1,7 +1,7 @@
 ---@type {[string]: fun(proc: KOCOS.Process, ...):...}
 local syscalls = {}
 
--- File syscalls
+-- File and socket syscalls
 
 ---@param path string
 ---@param mode "w"|"r"
@@ -53,6 +53,41 @@ function syscalls.mopen(proc, mode, contents, limit)
     error(fd)
 end
 
+---@param protocol string
+---@param subprotocol string
+function syscalls.socket(proc, protocol, subprotocol, config)
+    assert(type(protocol) == "string", "bad protocol")
+    assert(type(subprotocol) == "string", "bad subprotocol")
+    config = table.copy(config)
+
+    local s = assert(KOCOS.network.newSocket(protocol, subprotocol, config, proc))
+
+    ---@type KOCOS.SocketResource
+    local res = {
+        kind = "socket",
+        socket = s,
+        rc = 1,
+    }
+
+    local ok, fd = pcall(KOCOS.process.moveResource, proc, res)
+    if ok then
+        return fd
+    end
+
+    KOCOS.network.close(res.socket)
+    error(fd)
+end
+
+---@param fd integer
+---@param address any
+---@param options any
+function syscalls.connect(proc, fd, address, options)
+    local res = assert(proc.resources[fd], "bad file descriptor")
+    assert(res.kind == "socket", "bad file descriptor")
+    ---@cast res KOCOS.SocketResource
+    KOCOS.network.connect(res.socket, address, options)
+end
+
 ---@param fd integer
 function syscalls.close(proc, fd)
     local res = proc.resources[fd]
@@ -73,6 +108,12 @@ function syscalls.read(proc, fd, limit)
         ---@cast res KOCOS.FileResource
         local f = res.file
         local data, err = KOCOS.fs.read(f, limit)
+        if err then error(err) end
+        return data
+    elseif res.kind == "socket" then
+        ---@cast res KOCOS.SocketResource
+        local s = res.socket
+        local data, err = KOCOS.network.read(s, limit)
         if err then error(err) end
         return data
     end
@@ -122,6 +163,10 @@ function syscalls.ioctl(proc, fd, action, ...)
         ---@cast res KOCOS.FileResource
         return KOCOS.fs.ioctl(res.file, action, ...)
     end
+    if res.kind == "socket" then
+        ---@cast res KOCOS.SocketResource
+        return KOCOS.network.ioctl(res.socket, action, ...)
+    end
 
     error("bad file descriptor")
 end
@@ -136,7 +181,7 @@ function syscalls.list(proc, path)
     return assert(KOCOS.fs.list(path))
 end
 
--- End of file syscalls
+-- End of file and socket syscalls
 
 -- Event syscalls
 
