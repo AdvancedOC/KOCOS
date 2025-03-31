@@ -167,7 +167,7 @@ while true do
     end
 
     if queued(stdin, "read") and not inputBuffer then
-        pop(stdin, "read")
+        clear(stdin)
         inputBuffer = ""
     end
 
