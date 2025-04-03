@@ -9,6 +9,8 @@ function syscalls.open(proc, path, mode)
     assert(type(path) == "string", "invalid path")
     assert(mode == "w" or mode == "r", "invalid mode")
 
+    assert(KOCOS.fs.exists(path), "not found")
+
     local f = assert(KOCOS.fs.open(path, mode))
 
     ---@type KOCOS.FileResource
@@ -151,6 +153,37 @@ function syscalls.seek(proc, fd, whence, off)
         return assert(KOCOS.fs.seek(f, whence, off))
     end
     error("bad resource type")
+end
+
+---@param path string
+function syscalls.stat(proc, path)
+    assert(type(path) == "string", "bad path")
+
+    local info = {}
+    info.type = KOCOS.fs.type(path)
+    info.used = KOCOS.fs.spaceUsed(path)
+    info.total = KOCOS.fs.spaceTotal(path)
+    info.size = KOCOS.fs.size(path)
+    info.mtime = 0
+    info.uauth = 2^16-1
+    return info
+end
+
+function syscalls.cstat(proc)
+    local info = {}
+    info.boot = computer.getBootAddress()
+    info.tmp = computer.tmpAddress()
+    info.uptime = computer.uptime()
+    info.kernel = KOCOS.version
+    info.memTotal = computer.totalMemory()
+    info.memFree = computer.freeMemory()
+    info.arch = computer.getArchitecture()
+    info.energy = computer.energy()
+    info.maxEnergy = computer.maxEnergy()
+    info.isRobot = component.robot ~= nil
+    info.users = {computer.users()}
+    info.threadCount = #KOCOS.process.currentThreads
+    return info
 end
 
 ---@param fd integer

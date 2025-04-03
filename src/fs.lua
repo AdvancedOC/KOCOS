@@ -337,6 +337,13 @@ function fs.spaceTotal(path)
 end
 
 ---@param path string
+---@return integer
+function fs.size(path)
+    local manager, truePath = fs.resolve(path)
+    return manager:size(truePath)
+end
+
+---@param path string
 function fs.parentOf(path)
     local parts = string.split(fs.canonical(path), "%/")
     parts[#parts] = nil

@@ -25,6 +25,8 @@ KOCOS.rebootOnCrash = KOCOS.default(KOCOS_CONFIG.rebootOnCrash, true)
 KOCOS.logThreadEvents = KOCOS.default(KOCOS_CONFIG.logThreadEvents, false)
 KOCOS.selfTest = KOCOS.default(KOCOS_CONFIG.selfTest, computer.totalMemory() >= 2^19)
 
+KOCOS.version = "KOCOS incomplete"
+
 function KOCOS.logAll(...)
     local t = {...}
     for i=1,#t do t[i] = tostring(t[i]) end
