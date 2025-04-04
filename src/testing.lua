@@ -7,10 +7,10 @@ function testing.uuid()
         local i = math.random(1, #hexDigits)
         rawHex = rawHex .. hexDigits:sub(i, i)
     end
-    return rawHex:sub(1, 8)
-        .. rawHex:sub(9, 12)
-        .. rawHex:sub(13, 16)
-        .. rawHex:sub(17, 20)
+    return rawHex:sub(1, 8) .. '-'
+        .. rawHex:sub(9, 12) .. '-'
+        .. rawHex:sub(13, 16) .. '-'
+        .. rawHex:sub(17, 20) .. '-'
         .. rawHex:sub(21, 32)
 end
 
