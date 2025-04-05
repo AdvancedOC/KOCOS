@@ -109,8 +109,6 @@ tty:clear()
 local stdout = assert(mopen("w", "", math.huge))
 local stdin = assert(mopen("w", "", math.huge))
 
-_K.process.spawn("/internetTest.lua", {})
-
 local commandStdinBuffer = ""
 local function readLine()
     while true do
