@@ -33,3 +33,11 @@ function string.memformat(amount, spacing)
 
     return string.format("%.2f%s%s", amount, spacing, memunits[unit])
 end
+
+function string.startswith(s, prefix)
+    return s:sub(1, #prefix) == prefix
+end
+
+function string.endswith(s, suffix)
+    return s:sub(-#suffix) == suffix
+end

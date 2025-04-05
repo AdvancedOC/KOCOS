@@ -296,6 +296,7 @@ cat - Concatenate files (stdin is forbidden currently)
                     assert(write(stdout, "...\n"))
                 end
                 if total >= maximum then break end
+                coroutine.yield()
             end
             close(f)
         else
