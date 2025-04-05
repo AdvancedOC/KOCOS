@@ -2,7 +2,7 @@ local KOCOS = _K
 
 -- Syscall definitions (no liblua :sad:)
 
-local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat
+local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -71,6 +71,16 @@ end
 function cstat()
     local err, info = syscall("cstat")
     return info, err
+end
+
+function touch(path, perms)
+    local err = syscall("touch", path, perms)
+    return err == nil, err
+end
+
+function mkdir(path, perms)
+    local err = syscall("mkdir", path, perms)
+    return err == nil, err
 end
 
 local logPid
@@ -230,8 +240,27 @@ function cmds.stat(...)
         print("\tTotal: " .. info.total)
         print("\tLast Modified: " .. os.date("%x %X", info.mtime))
         print("\tPartition: " .. info.partition)
+        print("\tPartition Name: " .. info.deviceName)
         print("\tDrive Type: " .. info.driveType)
         print("\tDrive Name: " .. info.driveName)
+    end
+end
+
+function cmds.touch(...)
+    local args, opts = parse(...)
+
+    for i=1,#args do
+        -- 2^16-1 perms means everyone can do anything
+        assert(touch(args[i], 2^16-1))
+    end
+end
+
+function cmds.mkdir(...)
+    local args, opts = parse(...)
+
+    for i=1,#args do
+        -- 2^16-1 perms means everyone can do anything
+        assert(mkdir(args[i], 2^16-1))
     end
 end
 

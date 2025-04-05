@@ -201,7 +201,7 @@ local function rawSpawn(init, config)
     namespace.syscall = function(name, ...)
         local sys = KOCOS.syscalls[name]
         if not sys then return "bad syscall" end
-        local t = {pcall(sys, proc, ...)}
+        local t = {xpcall(sys, KOCOS.syscallTraceback and debug.traceback or tostring, proc, ...)}
         if t[1] then
             return nil, table.unpack(t, 2)
         else

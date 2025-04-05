@@ -28,6 +28,25 @@ function syscalls.open(proc, path, mode)
     error(fd)
 end
 
+---@param path string
+---@param permissions string
+function syscalls.touch(proc, path, permissions)
+    assert(type(path) == "string", "bad path")
+    assert(permissions >= 0 and permissions < 2^16, "bad permissions")
+    assert(not KOCOS.fs.exists(path), "already exists")
+
+    assert(KOCOS.fs.touch(path, permissions))
+end
+
+---@param path string
+---@param permissions string
+function syscalls.mkdir(proc, path, permissions)
+    assert(type(path) == "string", "bad path")
+    assert(permissions >= 0 and permissions < 2^16, "bad permissions")
+    assert(not KOCOS.fs.exists(path), "already exists")
+
+    assert(KOCOS.fs.mkdir(path, permissions))
+end
 
 ---@param mode "w"|"r"
 ---@param contents string

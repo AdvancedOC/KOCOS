@@ -202,6 +202,16 @@ function okffs:freeBlock(block)
     self:saveState()
 end
 
+---@param block integer
+function okffs:freeBlockList(block)
+    if block == 0 then return end -- Freeing NULL is fine
+    while block ~= NULL_BLOCK do
+        local next = self:readUint24(block, 0)
+        self:freeBlock(block)
+        block = next
+    end
+end
+
 function okffs:allocDirectoryBlock()
     local block = self:allocBlock()
     self:writeUint24(block, 0, 0) -- Next
@@ -293,7 +303,6 @@ end
 ---@param name string
 ---@return KOCOS.OKFFSEntry?
 function okffs:queryDirectoryEntry(dirBlock, name)
-    if dirBlock == 48 then error("e") end
     while true do
         if dirBlock == NULL_BLOCK then return end
         local next = self:readUint24(dirBlock, 0)
@@ -307,6 +316,17 @@ function okffs:queryDirectoryEntry(dirBlock, name)
         end
         dirBlock = next
     end
+end
+
+---@param dirBlock integer
+---@param name string
+function okffs:removeDirectoryEntry(dirBlock, name)
+    local entry = self:queryDirectoryEntry(dirBlock, name)
+    -- nothing to delete
+    if not entry then return end
+    self:freeBlockList(entry.blockList)
+    -- If it works it works
+    self:writeUintN(entry.dirEntryBlock, entry.dirEntryOff, 0, DIR_ENTRY_SIZE)
 end
 
 ---@Param dirBlock integer
@@ -323,8 +343,18 @@ function okffs:addDirectoryEntry(dirBlock, entry)
             entry.dirEntryBlock = dirBlock
             entry.dirEntryOff = len * DIR_ENTRY_SIZE
             self:saveDirectoryEntry(entry)
-            break
+            return
         else
+            for i=1,len do
+                local found = self:getDirectoryEntry(dirBlock, i * DIR_ENTRY_SIZE)
+                if found.name == "" then
+                    -- Actually, valid space
+                    entry.dirEntryBlock = dirBlock
+                    entry.dirEntryOff = i * DIR_ENTRY_SIZE
+                    self:saveDirectoryEntry(entry)
+                    return
+                end
+            end
             if next == NULL_BLOCK then
                 next = self:allocDirectoryBlock()
                 self:writeUint24(dirBlock, 0, next)
@@ -346,10 +376,12 @@ function okffs:listDirectoryEntries(dirBlock)
         for i=1,len do
             local off = i * DIR_ENTRY_SIZE
             local entry = self:getDirectoryEntry(dirBlock, off)
-            if entry.type == "directory" then
-                table.insert(arr, entry.name .. "/")
-            else
-                table.insert(arr, entry.name)
+            if entry.name ~= "" then
+                if entry.type == "directory" then
+                    table.insert(arr, entry.name .. "/")
+                else
+                    table.insert(arr, entry.name)
+                end
             end
         end
         dirBlock = next
@@ -508,6 +540,21 @@ function okffs:list(path)
     return self:listDirectoryEntries(entry.blockList)
 end
 
+function okffs:remove(path)
+    local parent = self:parentOf(path)
+    local name = self:nameOf(path)
+    local parentEntry = self:entryOf(parent)
+    if not parentEntry then return false, "missing" end
+    if parentEntry.type ~= "directory" then return false, "bad path" end
+    local entry = self:queryDirectoryEntry(parentEntry.blockList, name)
+    if not entry then return false, "missing" end
+    if entry.type == "directory" then
+        if #self:listDirectoryEntries(entry.blockList) > 0 then return false, "not empty" end
+    end
+    self:removeDirectoryEntry(parentEntry.blockList, name)
+    return true
+end
+
 KOCOS.fs.addDriver(okffs)
 
 KOCOS.test("OKFFS driver", function()
@@ -561,6 +608,8 @@ KOCOS.test("OKFFS driver", function()
     assert(manager:mkdir("data", perms))
     assert(manager:touch("data/stuff", perms))
     assert(manager:touch("data/other", perms))
+    assert(manager:permissionsOf("test") == perms, "perms dont work")
+    assert(manager:permissionsOf("data") == perms, "perms dont work")
 
     KOCOS.testing.expectSameSorted(assert(manager:list("")), {
         "test",
@@ -571,6 +620,24 @@ KOCOS.test("OKFFS driver", function()
         "stuff",
         "other",
     })
+
+    local spaceUsed = manager:spaceUsed()
+    assert(manager:mkdir("spam", perms))
+    for i=1,100 do
+        -- SPAM THIS BITCH
+        assert(manager:touch("spam/" .. i, perms))
+        assert(manager:type("spam/" .. i) == "file")
+    end
+    -- should fail as it is non-empty
+    KOCOS.testing.expectFail(assert, manager:remove("spam"))
+    KOCOS.logAll("spammed dir size", manager:size("spam"))
+    for i=1,100 do
+        -- SPAM THIS BITCH
+        assert(manager:remove("spam/" .. i))
+        assert(manager:type("spam/" .. i) == "missing")
+    end
+    assert(manager:remove("spam"))
+    assert(manager:spaceUsed() == spaceUsed, "space is getting leaked (" .. (spaceUsed - manager:spaceUsed()) .. " blocks)")
 end)
 
 KOCOS.defer(function()

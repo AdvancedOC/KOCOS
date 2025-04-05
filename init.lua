@@ -4,6 +4,7 @@ local config = {
     rootfs = rootfs,
     init = "/basicTTY.lua",
     logThreadEvents = true,
+    syscallTraceback = true,
 }
 
 -- Will be overwritten by KOCOS anyways
