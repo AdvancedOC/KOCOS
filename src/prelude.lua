@@ -76,7 +76,7 @@ function KOCOS.runDeferred(timeout)
 end
 
 function KOCOS.pcall(f, ...)
-    local ok, err = pcall(f, ...)
+    local ok, err = xpcall(f, debug.traceback, ...)
     if not ok then
         pcall(computer.beep)
         pcall(KOCOS.event.push, "kpanic", err, computer.uptime())

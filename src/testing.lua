@@ -15,7 +15,8 @@ function testing.uuid()
 end
 
 -- Creates a fake "drive" proxy with a random testing address
-function testing.drive(sectorSize, capacity)
+function testing.drive(sectorSize, capacity, name)
+    name = name or ("TEST " .. testing.uuid())
     local buffer = string.rep("\0", capacity) -- we love eating RAM
     local invalidSector = math.floor(capacity / sectorSize)
 
@@ -24,10 +25,10 @@ function testing.drive(sectorSize, capacity)
         type = "drive",
         address = testing.uuid(),
         getLabel = function()
-            return "TEST"
+            return name
         end,
         setLabel = function()
-            return "TEST"
+            return name
         end,
         getPlatterCount = function()
             return 1
@@ -64,9 +65,9 @@ function testing.drive(sectorSize, capacity)
             assert(sector >= 0 and sector < invalidSector, "DRIVE: sector out of bounds")
             assert(#value == sectorSize, "DRIVE: sector value is not correct")
             local pre = buffer:sub(1, sector * sectorSize)
-            local post = buffer:sub(1, (sector + 2) * sectorSize)
+            local post = buffer:sub((sector + 1) * sectorSize + 1)
             buffer = pre .. value .. post
-            return buffer
+            return true
         end,
         getCapacity = function()
             return capacity
@@ -77,6 +78,18 @@ end
 function testing.expectFail(f, ...)
     local ok = pcall(f, ...)
     assert(not ok, "operation should have failed")
+end
+
+---@generic T
+---@param a T[]
+---@param b T[]
+function testing.expectSameSorted(a, b)
+    assert(#a == #b, "mismatched lengths")
+    table.sort(a)
+    table.sort(b)
+    for i=1,#a do
+        assert(a[i] == b[i], "different data")
+    end
 end
 
 local testCount = 0
@@ -137,6 +150,29 @@ do
                     end
                     assert(drive.writeSector(i,data))
                     assert(drive.readSector(i) == data)
+                end
+
+                local sectors = {}
+                local sectorIdx = {}
+                for i=1,sectorCount do
+                    sectorIdx[i] = i
+                end
+                for i=1,#sectorIdx do
+                    local j = math.random(i)
+                    sectorIdx[i], sectorIdx[j] = sectorIdx[j], sectorIdx[i]
+                end
+                for j=1,sectorCount do
+                    local i = sectorIdx[j]
+                    local data = ""
+                    for _=1,sectorSize do
+                        data = data .. string.char(math.random(0, 255))
+                    end
+                    sectors[i] = data
+                    assert(drive.writeSector(i-1, data))
+                end
+                for j=1,sectorCount do
+                    local i = sectorIdx[j]
+                    assert(drive.readSector(i-1) == sectors[i], "bad storage")
                 end
             end)
         end

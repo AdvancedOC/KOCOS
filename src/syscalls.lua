@@ -166,6 +166,11 @@ function syscalls.stat(proc, path)
     info.size = KOCOS.fs.size(path)
     info.mtime = 0
     info.uauth = 2^16-1
+    local partition = KOCOS.fs.partitionOf(path)
+    info.partition = partition.uuid
+    info.driveType = partition.drive.type
+    info.deviceName = partition.name
+    info.driveName = partition.drive.getLabel() or "no label"
     return info
 end
 

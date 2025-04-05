@@ -6,6 +6,7 @@ function managedfs.create(partition)
     if partition.drive.type ~= "filesystem" then return nil end
 
     return setmetatable({
+        partition = partition,
         disk = partition.drive,
     }, managedfs)
 end
@@ -68,12 +69,28 @@ function managedfs:mkdir(path)
     return self.disk.makeDirectory(path)
 end
 
+function managedfs:touch(path)
+    if self.disk.exists(path) then return end
+    local f, err = self.disk.open(path, "w")
+    if err then return nil, err end
+    self.disk.close(f)
+    return true
+end
+
+function managedfs:permissionsOf(path)
+    return 2^16-1 -- Don't ask
+end
+
 function managedfs:ioctl(fd, action, ...)
     if action == "disk" then
         return self.disk.address
     end
 
     error("unsupported")
+end
+
+function managedfs:getPartition()
+    return self.partition
 end
 
 KOCOS.fs.addDriver(managedfs)

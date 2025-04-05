@@ -116,6 +116,7 @@ end
 ---@param mode "w"|"r"
 ---@return KOCOS.DiskFile?, string
 function fs.open(path, mode)
+    if fs.type(path) == "missing" then return nil, "missing file" end
     -- Pre-alloc file to OOM early
     ---@type KOCOS.DiskFile
     local file = {
@@ -134,6 +135,7 @@ function fs.open(path, mode)
     file.fd = fd
     return file, ""
 end
+
 
 ---@param file KOCOS.File
 ---@param n? integer
@@ -350,6 +352,12 @@ function fs.parentOf(path)
     return "/" .. table.concat(parts, "/")
 end
 
+---@return KOCOS.Partition
+function fs.partitionOf(path)
+    local manager = fs.resolve(path)
+    return manager:getPartition()
+end
+
 ---@class KOCOS.Partition
 ---@field drive table
 ---@field startByte integer
@@ -396,6 +404,54 @@ function fs.driverFor(partition)
         local manager = driver.create(partition)
         if manager then return manager end
     end
+end
+
+---@param path string
+---@param partition KOCOS.Partition
+function fs.mount(path, partition)
+    path = fs.canonical(path)
+    assert(fs.type(path) == "directory", "not a directory")
+    assert(#fs.list(path) == 0, "not empty directory")
+    local location = fs.canonical(path):sub(2)
+    assert(not globalTranslation[location], "duplicate mountpoint")
+    globalTranslation[location] = assert(fs.driverFor(partition), "missing driver")
+end
+
+---@param path string
+function fs.unmount(path)
+    assert(fs.isMount(path), "missing mountpoint")
+    local location = fs.canonical(path):sub(2)
+    globalTranslation[location] = nil
+end
+
+---@param path string
+function fs.isMount(path)
+    local location = fs.canonical(path):sub(2)
+    return globalTranslation[location] ~= nil
+end
+
+---@return boolean, string
+function fs.touch(path, permissions)
+    local manager, truepath = fs.resolve(path)
+    return manager:touch(truepath, permissions)
+end
+
+---@param path string
+---@return boolean, string
+function fs.mkdir(path, permissions)
+    path = fs.canonical(path)
+    if fs.type(fs.parentOf(path)) ~= "directory" then
+        return false, "parent is not directory"
+    end
+    local manager, truePath = fs.resolve(path)
+    return manager:mkdir(truePath, permissions)
+end
+
+---@param path string
+---@return integer
+function fs.permissionsOf(path)
+    local manager, truePath = fs.resolve(path)
+    return manager:permissionsOf(truePath)
 end
 
 KOCOS.fs = fs

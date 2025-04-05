@@ -46,17 +46,24 @@ else
     output(2, 6, string.byte('F'))
 end
 
---compressed = compressed:gsub(".", {["\r"] = "\\r", ["\n"] = "\\n", ["\\"] = "\\\\", ["'"] = "\\'", ["\""]="\\\""})
-local stringStuff = ""
-do
-    local rep = 0
-    while string.find(compressed, "]" .. string.rep("=", rep) .. "]", nil, true) do rep = rep + 1 end
-    local srep = string.rep("=", rep)
-    --stringStuff = "[" .. srep .. "[" .. compressed .. "]" .. srep .. "]"
-    stringStuff = string.format("%q", compressed)
+local useGoodEncoding = true
+---@param binary string
+local function encodeString(binary)
+    if not useGoodEncoding then return string.format("%q", binary) end
+    -- from https://www.lua.org/pil/2.4.html 
+    local substitutions = {
+        ["\n"] = "\\n",
+        ["\r"] = "\\r",
+        ["\t"] = "\\t",
+        ["\\"] = "\\\\",
+        ["'"] = "\\'",
+    }
+    return "'" .. binary:gsub(".", substitutions) .. "'"
 end
 
---assert(assert(load("return" .. stringStuff))() == compressed) -- sanity check
+local stringStuff = encodeString(compressed)
+
+assert(assert(load("return" .. stringStuff))() == compressed, "bad encoding") -- sanity check
 
 local out = string.format("local s=%s\n", stringStuff)
 out = out .. [[
@@ -78,4 +85,4 @@ for i=1,#s/4 do
 end
 return assert(load(decomp, "=decompressed"))(...)
 ]]
-assert(load(out, "=output"))()
+print(out)

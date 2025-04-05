@@ -217,6 +217,24 @@ function cmds.ls(...)
     end
 end
 
+function cmds.stat(...)
+    local args, opts = parse(...)
+
+    for i=1,#args do
+        local info = assert(stat(args[i]))
+
+        print(args[i])
+        print("\tType: " .. info.type)
+        print("\tSize: " .. info.size)
+        print("\tUsed: " .. info.used)
+        print("\tTotal: " .. info.total)
+        print("\tLast Modified: " .. os.date("%x %X", info.mtime))
+        print("\tPartition: " .. info.partition)
+        print("\tDrive Type: " .. info.driveType)
+        print("\tDrive Name: " .. info.driveName)
+    end
+end
+
 function cmds.cat(...)
     local args, opts = parse(...)
 
