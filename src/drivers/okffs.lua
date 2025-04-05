@@ -32,13 +32,31 @@ struct okffs_header {
 
 ]]
 
----@class KOCOS.OKFFSDriver
+---@class KOCOS.OKFFS.FileState
+---@field path string
+---@field entry KOCOS.OKFFS.Entry
+---@field modifications integer
+---@field rc integer
+
+---@class KOCOS.OKFFS.Handle
+---@field state KOCOS.OKFFS.FileState
+---@field mode "w"|"r"
+---@field pos integer
+-- Used to determine if cached stuff is valid
+---@field lastModifications integer
+---@field size integer
+---@field curBlock integer
+---@field curOff integer
+
+---@class KOCOS.OKFFS.Driver
 ---@field partition KOCOS.Partition
 ---@field drive table
 ---@field start integer
 ---@field sectorSize integer
 ---@field capacity integer
 ---@field readonly boolean
+---@field fileStates {[string]: KOCOS.OKFFS.FileState}
+---@field handles {[integer]: KOCOS.OKFFS.Handle}
 local okffs = {}
 okffs.__index = okffs
 
@@ -54,6 +72,8 @@ function okffs.create(partition)
         sectorSize = sectorSize,
         capacity = math.floor(partition.byteSize / sectorSize),
         readonly = partition.readonly,
+        fileStates = {},
+        handles = {},
     }, okffs)
     -- Failed signature check
     if not manager:fetchState() then
@@ -243,7 +263,7 @@ local invTypeMap = {
 -- See structs
 local DIR_ENTRY_SIZE = 64
 
----@class KOCOS.OKFFSEntry
+---@class KOCOS.OKFFS.Entry
 ---@field name string
 ---@field type KOCOS.FileType
 ---@field blockList integer
@@ -252,7 +272,7 @@ local DIR_ENTRY_SIZE = 64
 ---@field dirEntryBlock integer
 ---@field dirEntryOff integer
 
----@return KOCOS.OKFFSEntry
+---@return KOCOS.OKFFS.Entry
 function okffs:getDirectoryEntry(dirBlock, off)
     local name = self:readSectorBytes(dirBlock, off, 32)
     local terminator = name:find("\0", nil, true)
@@ -265,7 +285,7 @@ function okffs:getDirectoryEntry(dirBlock, off)
     local ftype = self:readUintN(dirBlock, off+42, 1)
     local blockList = self:readUint24(dirBlock, off+43)
 
-    ---@type KOCOS.OKFFSEntry
+    ---@type KOCOS.OKFFS.Entry
     return {
         name = name,
         type = invTypeMap[ftype],
@@ -277,7 +297,7 @@ function okffs:getDirectoryEntry(dirBlock, off)
     }
 end
 
----@param entry KOCOS.OKFFSEntry
+---@param entry KOCOS.OKFFS.Entry
 ---@return string
 function okffs:encodeDirectoryEntry(entry)
     assert(#entry.name <= 32, "name too big")
@@ -293,7 +313,7 @@ function okffs:encodeDirectoryEntry(entry)
     return data
 end
 
----@param entry KOCOS.OKFFSEntry
+---@param entry KOCOS.OKFFS.Entry
 function okffs:saveDirectoryEntry(entry)
     if entry.dirEntryBlock == NULL_BLOCK then return end
     self:writeSectorBytes(entry.dirEntryBlock, entry.dirEntryOff, self:encodeDirectoryEntry(entry))
@@ -301,7 +321,7 @@ end
 
 ---@param dirBlock integer
 ---@param name string
----@return KOCOS.OKFFSEntry?
+---@return KOCOS.OKFFS.Entry?
 function okffs:queryDirectoryEntry(dirBlock, name)
     while true do
         if dirBlock == NULL_BLOCK then return end
@@ -330,7 +350,7 @@ function okffs:removeDirectoryEntry(dirBlock, name)
 end
 
 ---@Param dirBlock integer
----@param entry KOCOS.OKFFSEntry
+---@param entry KOCOS.OKFFS.Entry
 --- Mutates entry to store its new position
 function okffs:addDirectoryEntry(dirBlock, entry)
     local maxLen = (self.sectorSize / DIR_ENTRY_SIZE) - 1
@@ -396,10 +416,10 @@ function okffs:ensureRoot()
     end
 end
 
----@return KOCOS.OKFFSEntry?
+---@return KOCOS.OKFFS.Entry?
 function okffs:entryOf(path)
     self:ensureRoot()
-    ---@type KOCOS.OKFFSEntry
+    ---@type KOCOS.OKFFS.Entry
     local entry = {
         name = "/",
         dirEntryBlock = NULL_BLOCK,
@@ -460,7 +480,7 @@ function okffs:nameOf(path)
 end
 
 ---@param parent string
----@param entry KOCOS.OKFFSEntry
+---@param entry KOCOS.OKFFS.Entry
 ---@return boolean, string
 function okffs:mkentry(parent, entry)
     self:ensureRoot()
@@ -472,7 +492,7 @@ function okffs:mkentry(parent, entry)
         self:saveDirectoryEntry(parentEntry)
     end
     if self:queryDirectoryEntry(parentEntry.blockList, entry.name) then return false, "duplicate" end
-    ---@type KOCOS.OKFFSEntry
+    ---@type KOCOS.OKFFS.Entry
     self:addDirectoryEntry(parentEntry.blockList, entry)
     return true, ""
 end
@@ -541,6 +561,9 @@ function okffs:list(path)
 end
 
 function okffs:remove(path)
+    if self.fileStates[path] then
+        return false, "in use"
+    end
     local parent = self:parentOf(path)
     local name = self:nameOf(path)
     local parentEntry = self:entryOf(parent)
@@ -552,6 +575,85 @@ function okffs:remove(path)
         if #self:listDirectoryEntries(entry.blockList) > 0 then return false, "not empty" end
     end
     self:removeDirectoryEntry(parentEntry.blockList, name)
+    return true
+end
+
+---@return KOCOS.OKFFS.FileState?, string
+function okffs:getFileState(path)
+    if self.fileStates[path] then
+        local state = self.fileStates[path]
+        state.rc = state.rc + 1
+        return state, ""
+    end
+    local entry = self:entryOf(path)
+    if not entry then return nil, "missing" end
+    if entry.type ~= "file" then return nil, "not file" end
+    ---@type KOCOS.OKFFS.FileState
+    local state = {
+        path = path,
+        entry = entry,
+        rc = 1,
+        modifications = 0,
+    }
+    return state, ""
+end
+
+function okffs:open(path, mode)
+    local state, err = okffs:getFileState(path)
+    if not state then return nil, err end
+    ---@type KOCOS.OKFFS.Handle
+    local handle = {
+        state = state,
+        lastModifications = state.modifications,
+        pos = 0,
+        mode = mode,
+        -- Default cache stuff
+        curBlock = NULL_BLOCK,
+        curOff = 0,
+        size = 0,
+    }
+    self:clearHandleCache(handle)
+    local fd = #self.handles
+    while self.handles[fd] do fd = fd + 1 end
+    self.handles[fd] = handle
+    return fd
+end
+
+---@param handle KOCOS.OKFFS.Handle
+function okffs:clearHandleCache(handle)
+    handle.curBlock = NULL_BLOCK
+    handle.size = 0
+end
+
+---@param handle KOCOS.OKFFS.Handle
+function okffs:ensureSync(handle)
+    if handle.lastModifications ~= handle.state.modifications then
+        -- Other handle fucked over our cache
+        self:clearHandleCache(handle)
+        handle.lastModifications = handle.state.modifications
+    end
+end
+
+---@param fd integer
+---@param data string
+function okffs:write(fd, data)
+
+end
+
+---@param fd integer
+---@param len string
+function okffs:read(fd, len)
+
+end
+
+function okffs:close(fd)
+    local handle = self.handles[fd]
+    if not handle then return false, "bad file descriptor" end
+    self.handles[fd] = nil
+    handle.state.rc = handle.state.rc - 1
+    if handle.state.rc <= 0 then
+        self.fileStates[handle.state.path] = nil
+    end
     return true
 end
 
@@ -638,6 +740,20 @@ KOCOS.test("OKFFS driver", function()
     end
     assert(manager:remove("spam"))
     assert(manager:spaceUsed() == spaceUsed, "space is getting leaked (" .. (spaceUsed - manager:spaceUsed()) .. " blocks)")
+
+    local data = ""
+    do
+        local bytes = {}
+        for _=1,1024 do
+            table.insert(bytes, math.random(0, 255))
+        end
+        data = string.char(table.unpack(bytes))
+    end
+    local test = assert(manager:open("test", "w"))
+
+    assert(manager:close(test))
+    assert(next(manager.handles) == nil, "handles leaked")
+    assert(next(manager.fileStates) == nil, "file states leaked")
 end)
 
 KOCOS.defer(function()

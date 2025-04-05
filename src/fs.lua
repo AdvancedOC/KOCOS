@@ -454,6 +454,19 @@ function fs.permissionsOf(path)
     return manager:permissionsOf(truePath)
 end
 
+---@param path string
+---@return boolean, string
+function fs.remove(path)
+    if fs.isMount(path) then return false, "is mountpoint" end
+    if fs.type(path) == "directory" then
+        local l, err = fs.list(path)
+        if err then return false, err end
+        if #l > 0 then return false, "directory not empty" end
+    end
+    local manager, truePath = fs.resolve(path)
+    return manager:remove(truePath)
+end
+
 KOCOS.fs = fs
 
 KOCOS.log("Loaded filesystem")

@@ -48,6 +48,12 @@ function syscalls.mkdir(proc, path, permissions)
     assert(KOCOS.fs.mkdir(path, permissions))
 end
 
+---@param path string
+function syscalls.remove(proc, path)
+    assert(type(path) == "string", "bad path")
+    assert(KOCOS.fs.remove(path))
+end
+
 ---@param mode "w"|"r"
 ---@param contents string
 ---@param limit integer
