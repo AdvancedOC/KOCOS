@@ -599,7 +599,7 @@ function okffs:getFileState(path)
 end
 
 function okffs:open(path, mode)
-    local state, err = okffs:getFileState(path)
+    local state, err = self:getFileState(path)
     if not state then return nil, err end
     ---@type KOCOS.OKFFS.Handle
     local handle = {
