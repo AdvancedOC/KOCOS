@@ -178,6 +178,11 @@ function process.addLoader(loader)
     table.insert(process.loaders, loader)
 end
 
+---@param err string
+local function trimLoc(err)
+    return err:gsub("[^:]+:[^:]+:%s", "", 1)
+end
+
 local function rawSpawn(init, config)
     config = config or {}
 
@@ -201,7 +206,7 @@ local function rawSpawn(init, config)
     namespace.syscall = function(name, ...)
         local sys = KOCOS.syscalls[name]
         if not sys then return "bad syscall" end
-        local t = {xpcall(sys, KOCOS.syscallTraceback and debug.traceback or tostring, proc, ...)}
+        local t = {xpcall(sys, KOCOS.syscallTraceback and debug.traceback or trimLoc, proc, ...)}
         if t[1] then
             return nil, table.unpack(t, 2)
         else
