@@ -12,7 +12,9 @@ function managedfs.create(partition)
 end
 
 function managedfs:open(path, mode)
-    return self.disk.open(path, mode)
+    local fd, err = self.disk.open(path, mode)
+    if err then return nil, err end
+    return fd
 end
 
 function managedfs:close(fd)

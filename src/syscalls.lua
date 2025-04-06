@@ -12,6 +12,7 @@ function syscalls.open(proc, path, mode)
     assert(KOCOS.fs.exists(path), "not found")
 
     local f = assert(KOCOS.fs.open(path, mode))
+    KOCOS.logAll("open", f.fd)
 
     ---@type KOCOS.FileResource
     local res = {
@@ -157,6 +158,9 @@ function syscalls.write(proc, fd, data)
     if res.kind == "file" then
         ---@cast res KOCOS.FileResource
         local f = res.file
+        if f.kind == "disk" then
+            KOCOS.logAll("FD", f.fd, debug.traceback())
+        end
         assert(KOCOS.fs.write(f, data))
         return
     end

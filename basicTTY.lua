@@ -2,7 +2,7 @@ local KOCOS = _K
 
 -- Syscall definitions (no liblua :sad:)
 
-local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir
+local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -80,6 +80,11 @@ end
 
 function mkdir(path, perms)
     local err = syscall("mkdir", path, perms)
+    return err == nil, err
+end
+
+function remove(path)
+    local err = syscall("remove", path)
     return err == nil, err
 end
 
@@ -224,6 +229,50 @@ function cmds.ls(...)
             end
             print("\t" .. data)
         end
+    end
+end
+
+function cmds.cp(...)
+    local args, opts = parse(...)
+
+    local input = assert(args[1], "no input file")
+    local output = assert(args[2], "no output file")
+
+    local inFile, outFile, err, chunk, _
+
+    inFile, err = open(input, "r")
+    if err then error(err) end
+    if ftype(output) == "missing" then
+        _, err = touch(output, 2^16-1)
+        if err then
+            error(err)
+        end
+    end
+    outFile, err = open(output, "w")
+    if err then error(err) end
+
+    while true do
+        chunk, err = read(inFile, math.huge)
+        if err then
+            error(err)
+        end
+        if not chunk then break end
+
+        _, err = write(outFile, chunk)
+        if err then
+            error(err)
+        end
+    end
+
+    close(inFile)
+    close(outFile)
+end
+
+function cmds.rm(...)
+    local args, opts = parse(...)
+
+    for i=1,#args do
+        assert(remove(args[i]))
     end
 end
 

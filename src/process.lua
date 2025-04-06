@@ -343,7 +343,7 @@ end
 
 ---@return integer
 function process:newFD()
-    local fd = 3
+    local fd = #self.resources
     while self.resources[fd] do fd = fd + 1 end
     return fd
 end

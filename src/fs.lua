@@ -130,7 +130,7 @@ function fs.open(path, mode)
 
     local manager, truepath = fs.resolve(path)
     file.manager = manager
-    local fd, err = manager:open(truepath)
+    local fd, err = manager:open(truepath, mode)
     if err then return nil, err end
     file.fd = fd
     return file, ""

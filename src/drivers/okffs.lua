@@ -35,7 +35,7 @@ struct okffs_header {
 ---@class KOCOS.OKFFS.FileState
 ---@field path string
 ---@field entry KOCOS.OKFFS.Entry
----@field modifications integer
+---@field lastModification integer
 ---@field rc integer
 
 ---@class KOCOS.OKFFS.Handle
@@ -43,10 +43,11 @@ struct okffs_header {
 ---@field mode "w"|"r"
 ---@field pos integer
 -- Used to determine if cached stuff is valid
----@field lastModifications integer
+---@field syncedWith integer
 ---@field size integer
 ---@field curBlock integer
 ---@field curOff integer
+---@field lastPosition integer
 
 ---@class KOCOS.OKFFS.Driver
 ---@field partition KOCOS.Partition
@@ -446,6 +447,7 @@ function okffs:entryOf(path)
 end
 
 function okffs:spaceUsed()
+    -- +1 cuz the header takes up 1 block
     return (self.activeBlockCount + 1) * self.sectorSize
 end
 
@@ -593,9 +595,16 @@ function okffs:getFileState(path)
         path = path,
         entry = entry,
         rc = 1,
-        modifications = 0,
+        lastModification = math.huge,
     }
     return state, ""
+end
+
+---@param handle KOCOS.OKFFS.Handle
+function okffs:recordModification(handle)
+    handle.state.lastModification = handle.state.lastModification + 1
+    -- we are the last modification
+    handle.syncedWith = handle.state.lastModification
 end
 
 function okffs:open(path, mode)
@@ -604,18 +613,27 @@ function okffs:open(path, mode)
     ---@type KOCOS.OKFFS.Handle
     local handle = {
         state = state,
-        lastModifications = state.modifications,
         pos = 0,
         mode = mode,
         -- Default cache stuff
         curBlock = NULL_BLOCK,
         curOff = 0,
+        lastPosition = 0,
         size = 0,
+        syncedWith = state.lastModification,
     }
     self:clearHandleCache(handle)
     local fd = #self.handles
     while self.handles[fd] do fd = fd + 1 end
     self.handles[fd] = handle
+    if mode == "w" then
+        local entry = handle.state.entry
+        self:freeBlockList(entry.blockList)
+        entry.blockList = NULL_BLOCK
+
+        -- we did a modification!!!!
+        self:recordModification(handle)
+    end
     return fd
 end
 
@@ -627,23 +645,215 @@ end
 
 ---@param handle KOCOS.OKFFS.Handle
 function okffs:ensureSync(handle)
-    if handle.lastModifications ~= handle.state.modifications then
+    if handle.syncedWith ~= handle.state.lastModification then
         -- Other handle fucked over our cache
         self:clearHandleCache(handle)
-        handle.lastModifications = handle.state.modifications
+        handle.syncedWith = handle.state.lastModification
     end
+end
+
+---@param handle KOCOS.OKFFS.Handle
+---@param position integer
+function okffs:computeSeek(handle, position)
+    self:ensureSync(handle)
+    local curBlock = handle.curBlock
+    local curOff = handle.curOff
+    if curBlock == NULL_BLOCK then
+        curBlock = handle.state.entry.blockList
+        curOff = 0 -- just in case
+        handle.lastPosition = 0
+    end
+
+    curOff = curOff + position - handle.lastPosition
+    if position < handle.lastPosition then
+        curBlock = handle.state.entry.blockList
+        curOff = position
+    end
+
+    while curOff > 0 do
+        local next = self:readUint24(curBlock, 0)
+        local len = self:readUintN(curBlock, 3, 2)
+        -- Being past the last byte of the last block is a condition write expects
+        -- Read accounts for it
+        if curOff <= len then break end
+        curOff = curOff - len
+        curBlock = next
+    end
+
+    handle.curBlock = curBlock
+    handle.curOff = curOff
+    handle.lastPosition = position
+    handle.syncedWith = handle.state.lastModification
+end
+
+---@param handle KOCOS.OKFFS.Handle
+function okffs:getSeekBlockAndOffset(handle)
+    self:ensureSync(handle)
+    if handle.curBlock == NULL_BLOCK or handle.lastPosition ~= handle.pos then
+        self:computeSeek(handle, handle.pos)
+    end
+    return handle.curBlock, handle.curOff
+end
+
+---@param fileBlockList integer
+function okffs:getByteLength(fileBlockList)
+    local size = 0
+    local block = fileBlockList
+    while true do
+        if block == NULL_BLOCK then break end
+        local next = self:readUint24(block, 0)
+        local len = self:readUintN(block, 3, 2)
+        size = size + len
+        block = next
+    end
+    return size
+end
+
+---@param handle KOCOS.OKFFS.Handle
+function okffs:getHandleSize(handle)
+    self:ensureSync(handle)
+    if handle.size ~= 0 then return handle.size end
+    handle.size = self:getByteLength(handle.state.entry.blockList)
+    handle.syncedWith = handle.state.lastModification
+    return handle.size
+end
+
+---@param amount integer
+function okffs:recommendedMemoryFor(amount)
+    return self:spaceNeededFor(amount) * 3 -- internal copies lol
+end
+
+---@param amount integer
+function okffs:spaceNeededFor(amount)
+    local dataPerBlock = self.sectorSize - 5 -- block prefix is next (3 bytes) + len (2 bytes)
+    local blocksNeeded = math.ceil(amount / dataPerBlock)
+    return blocksNeeded * self.sectorSize
+end
+
+function okffs:appendToBlockList(curBlock, data)
+    local dataPerSector = self.sectorSize - 5
+    while #data > 0 do
+        local next = self:readUint24(curBlock, 0)
+        local len = self:readUintN(curBlock, 3, 2)
+        local remaining = dataPerSector - len
+
+        local chunk = ""
+        if #data <= remaining then
+            -- Fast case
+            chunk = data
+            data = ""
+        else
+            -- Slow case
+            chunk = data:sub(1, remaining)
+            data = data:sub(remaining+1)
+        end
+        self:writeSectorBytes(curBlock, 5 + len, chunk)
+        len = len + #chunk
+        self:writeUintN(curBlock, 3, len, 2)
+
+        if #data == 0 then break end
+
+        local afterwards = next
+        next = self:allocFileBlock()
+        self:writeUint24(next, 0, afterwards)
+        self:writeUint24(curBlock, 0, next)
+
+        curBlock = next
+    end
+end
+
+---@param curBlock integer
+---@param curOff integer
+---@param count integer
+function okffs:readFileBlockList(curBlock, curOff, count)
+    local data = ""
+    while #data < count do
+        if curBlock == NULL_BLOCK then break end
+        local next = self:readUint24(curBlock, 0)
+        local len = self:readUintN(curBlock, 3, 2)
+        if curOff < len then
+            data = data .. self:readSectorBytes(curBlock, 5 + curOff, len - curOff)
+        end
+        curBlock = next
+        curOff = 0
+    end
+    if #data > count then data = data:sub(1, count) end
+    return data
 end
 
 ---@param fd integer
 ---@param data string
 function okffs:write(fd, data)
+    local handle = self.handles[fd]
+    if not handle then return false, "bad file descriptor" end
+    if computer.freeMemory() < self:recommendedMemoryFor(#data) then
+        -- inconvenient OOMs may lead to corrupted data
+        return false, "dangerously low ram"
+    end
+    -- once defragmenting is done, we could try to defragment here
+    if self:spaceTotal() - self:spaceUsed() < self:spaceNeededFor(#data) then
+        -- a failing block allocation during a write could corrupt data
+        return false, "out of space"
+    end
+    self:ensureSync(handle)
+    local entry = handle.state.entry
+    if entry.blockList == NULL_BLOCK then
+        entry.blockList = self:allocFileBlock()
+        self:saveDirectoryEntry(entry)
+        self:recordModification(handle)
+    end
+    -- we gonna modify it
+    local curBlock, curOff = self:getSeekBlockAndOffset(handle)
+    do
+        local len = self:readUintN(curBlock, 3, 2)
+        if curOff < len then
+            -- when they're equal, we insert right after
+            -- when they're not, we need to append
+            local extradata = self:readSectorBytes(curBlock, 5 + curOff, len - curOff)
+            data = data .. extradata -- we do it here in case of OOM
+            self:writeUintN(curBlock, 3, curOff, 2) -- make them equal
+        end
+        self:appendToBlockList(curBlock, data)
+    end
+    handle.pos = handle.pos + #data
+    handle.size = 0
+    self:recordModification(handle)
+    return true
+end
 
+
+---@param fd integer
+---@param len integer
+function okffs:read(fd, len)
+    -- TODO: make readFileBlockList support math.huge lengths
+    if len == math.huge then len = 16384 end
+    local handle = self.handles[fd]
+    if not handle then return false, "bad file descriptor" end
+    self:ensureSync(handle)
+    local curBlock, curOff = self:getSeekBlockAndOffset(handle)
+    local data = self:readFileBlockList(curBlock, curOff, len)
+    handle.pos = handle.pos + #data
+    if #data == 0 then return nil, nil end
+    return data
 end
 
 ---@param fd integer
----@param len string
-function okffs:read(fd, len)
-
+---@param whence "set"|"cur"|"end"
+---@param off integer
+function okffs:seek(fd, whence, off)
+    local handle = self.handles[fd]
+    if not handle then return nil, "bad file descriptor" end
+    local size = self:getHandleSize(handle)
+    local pos = handle.pos
+    if whence == "set" then
+        pos = off
+    elseif whence == "cur" then
+        pos = pos + off
+    elseif whence == "end" then
+        pos = size - off
+    end
+    handle.pos = math.max(0, math.min(pos, size))
+    return handle.pos
 end
 
 function okffs:close(fd)
@@ -732,7 +942,6 @@ KOCOS.test("OKFFS driver", function()
     end
     -- should fail as it is non-empty
     KOCOS.testing.expectFail(assert, manager:remove("spam"))
-    KOCOS.logAll("spammed dir size", manager:size("spam"))
     for i=1,100 do
         -- SPAM THIS BITCH
         assert(manager:remove("spam/" .. i))
@@ -741,15 +950,38 @@ KOCOS.test("OKFFS driver", function()
     assert(manager:remove("spam"))
     assert(manager:spaceUsed() == spaceUsed, "space is getting leaked (" .. (spaceUsed - manager:spaceUsed()) .. " blocks)")
 
-    local data = ""
+    local test = assert(manager:open("test", "w"))
+    assert(manager:seek(test, "cur", 0) == 0, "bad initial position")
+
+    local smallData = "Hello, world!"
+    local bigData = ""
     do
         local bytes = {}
         for _=1,1024 do
             table.insert(bytes, math.random(0, 255))
         end
-        data = string.char(table.unpack(bytes))
+        bigData = string.char(table.unpack(bytes))
     end
-    local test = assert(manager:open("test", "w"))
+    assert(manager:write(test, smallData))
+    assert(manager:seek(test, "cur", 0) == #smallData, "bad current position")
+    assert(manager:seek(test, "set", 0) == 0, "seeking is messing us up")
+    assert(manager:read(test, #smallData) == smallData, "reading data back is wrong")
+    assert(manager:seek(test, "set", 0))
+    assert(manager:seek(test, "end", 0) == #smallData, "bad end position")
+    assert(manager:write(test, smallData))
+    assert(manager:seek(test, "end", 0) == #smallData * 2, "bad file size")
+    assert(manager:read(test, math.huge) == nil, "reading does not EOF")
+    assert(manager:seek(test, "set", 0))
+    assert(manager:read(test, 2 * #smallData) == string.rep(smallData, 2), "bad appends")
+    local smallFileData = string.rep(smallData, 2, "___")
+    assert(manager:seek(test, "set", #smallData))
+    assert(manager:write(test, "___"))
+    assert(manager:seek(test, "set", 0))
+    assert(manager:read(test, #smallFileData) == smallFileData, "bad inserts")
+    assert(manager:seek(test, "set", 0))
+    assert(manager:write(test, bigData))
+    assert(manager:seek(test, "set", 0))
+    assert(manager:read(test, #bigData + #smallFileData) == bigData .. smallFileData, "bad prepends from big data")
 
     assert(manager:close(test))
     assert(next(manager.handles) == nil, "handles leaked")
@@ -758,7 +990,8 @@ end)
 
 KOCOS.defer(function()
     if not KOCOS.fs.exists("/tmp") then return end
-    local drive = KOCOS.testing.drive(512, 16384, "OKFFS tmp drive")
+    -- 2^18 means 256KiB
+    local drive = KOCOS.testing.drive(512, 2^18, "OKFFS tmp drive")
     ---@type KOCOS.Partition
     local partition = {
         name = "OKFFS mount",
