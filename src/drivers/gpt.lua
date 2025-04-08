@@ -59,7 +59,7 @@ function KOCOS.gpt(drive)
     -- This is currently NOT OPTIMIZED AT ALL
     local blockSize = drive.getSectorSize()
 
-    local off = blockSize -- skip LBA 0 since we don't care about MBR
+    local off = blockSize+1 -- skip LBA 0 since we don't care about MBR
 
     -- Check if GPT drive
 
@@ -67,7 +67,6 @@ function KOCOS.gpt(drive)
     if sig ~= "EFI PART" then return end -- not GPT drive.
 
     -- Revision number and CRC32 checksums are skipped, not needed
-    local diskGUID = readGUID(drive, off + 56)
     local startOfPartitionsLBA = readNum(drive, off + 72, 8)
     local partitionCount = readNum(drive, off + 80, 4)
     local partitionEntrySize = readNum(drive, off + 84, 4)

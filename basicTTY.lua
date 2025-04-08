@@ -337,6 +337,14 @@ function cmds.mount(...)
     _K.fs.mount(dir, part)
 end
 
+function cmds.unmount(...)
+    local args, opts = parse(...)
+
+    for i=1,#args do
+        _K.fs.unmount(args[i])
+    end
+end
+
 function cmds.shutdown(...)
     _OS.computer.shutdown()
 end

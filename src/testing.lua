@@ -17,10 +17,12 @@ end
 -- Creates a fake "drive" proxy with a random testing address
 function testing.drive(sectorSize, capacity, name)
     name = name or ("TEST " .. testing.uuid())
-    local buffer = string.rep("\0", capacity) -- we love eating RAM
-    local invalidSector = math.floor(capacity / sectorSize)
+    local invalidSector = math.floor(capacity / sectorSize) + 1
 
-    return {
+    local defaultSector = string.rep("\0", sectorSize)
+    local sectors = {}
+
+    local drive = {
         slot = -1,
         type = "drive",
         address = testing.uuid(),
@@ -36,43 +38,53 @@ function testing.drive(sectorSize, capacity, name)
         getSectorSize = function()
             return sectorSize
         end,
-        readByte = function(off)
-            assert(math.floor(off) == off, "DRIVE: byte offset is not integer")
-            if off < 0 or off >= #buffer then
-                error("DRIVE: out of bounds")
-            end
-            return buffer:byte(off+1, off+1)
-        end,
-        writeByte = function(off, value)
-            assert(math.floor(off) == off, "DRIVE: byte offset is not integer")
-            if off < 0 or off >= #buffer then
-                error("DRIVE: out of bounds")
-            end
-            assert(math.floor(value) == value, "DRIVE: byte is not integer")
-            assert(value >= 0 and value < 256, "DRIVE: invalid byte")
-            local pre = buffer:sub(1, off)
-            local post = buffer:sub(off+2)
-            buffer = pre .. string.char(value) .. post
-            return true
-        end,
         readSector = function(sector)
             assert(math.floor(sector) == sector, "DRIVE: sector is not integer")
-            assert(sector >= 0 and sector < invalidSector, "DRIVE: sector out of bounds")
-            return buffer:sub(sector * sectorSize + 1, (sector + 1) * sectorSize)
+            assert(sector > 0 and sector < invalidSector, "DRIVE: sector out of bounds")
+            return sectors[sector] or defaultSector
         end,
         writeSector = function(sector, value)
             assert(math.floor(sector) == sector, "DRIVE: sector is not integer")
             assert(sector >= 0 and sector < invalidSector, "DRIVE: sector out of bounds")
             assert(#value == sectorSize, "DRIVE: sector value is not correct")
-            local pre = buffer:sub(1, sector * sectorSize)
-            local post = buffer:sub((sector + 1) * sectorSize + 1)
-            buffer = pre .. value .. post
+            sectors[sector] = value
             return true
         end,
         getCapacity = function()
             return capacity
         end,
     }
+    local function sectorFromOff(off)
+        local sec = off
+        sec = sec - 1
+        sec = sec / sectorSize
+        sec = math.floor(sec)
+        return sec + 1, off - sec * sectorSize
+    end
+    function drive.readByte(off)
+        assert(math.floor(off) == off, "DRIVE: byte offset is not integer")
+        if off < 1 or off > capacity then
+            error("DRIVE: out of bounds")
+        end
+        local sector, idx = sectorFromOff(off)
+        return drive.readSector(sector):byte(idx+1, idx+1)
+    end
+    function drive.writeByte(off, value)
+        assert(math.floor(off) == off, "DRIVE: byte offset is not integer")
+        if off < 1 or off > capacity then
+            error("DRIVE: out of bounds")
+        end
+        assert(math.floor(value) == value, "DRIVE: byte is not integer")
+        assert(value >= 0 and value < 256, "DRIVE: invalid byte")
+        local sector, idx = sectorFromOff(off)
+        local buffer = drive.readSector(sector)
+        local pre = buffer:sub(1, idx)
+        local post = buffer:sub(idx+2)
+        buffer = pre .. string.char(value) .. post
+        drive.writeSector(sector, buffer)
+        return true
+    end
+    return drive
 end
 
 function testing.expectFail(f, ...)
@@ -133,17 +145,17 @@ do
                 assert(drive.getCapacity() == capacity)
 
                 testing.expectFail(drive.writeByte, 2^32, 0)
-                testing.expectFail(drive.writeByte, 0, 256)
+                testing.expectFail(drive.writeByte, 1, 256)
                 testing.expectFail(drive.writeSector, 2^32, string.rep(" ", sectorSize))
-                testing.expectFail(drive.writeSector, 0, string.rep(" ", sectorSize-1))
+                testing.expectFail(drive.writeSector, 1, string.rep(" ", sectorSize-1))
                 for _=1,32 do
                     local randomByte = math.random(0, 255)
-                    local randomPos = math.random(0, capacity-1)
+                    local randomPos = math.random(1, capacity)
                     assert(drive.writeByte(randomPos, randomByte))
                     assert(drive.readByte(randomPos) == randomByte)
                 end
 
-                for i=0,sectorCount-1 do
+                for i=1,sectorCount do
                     local data = ""
                     for _=1,sectorSize do
                         data = data .. string.char(math.random(0, 255))
@@ -168,11 +180,11 @@ do
                         data = data .. string.char(math.random(0, 255))
                     end
                     sectors[i] = data
-                    assert(drive.writeSector(i-1, data))
+                    assert(drive.writeSector(i, data))
                 end
                 for j=1,sectorCount do
                     local i = sectorIdx[j]
-                    assert(drive.readSector(i-1) == sectors[i], "bad storage")
+                    assert(drive.readSector(i) == sectors[i], "bad storage")
                 end
             end)
         end

@@ -69,7 +69,7 @@ function okffs.create(partition)
     local manager = setmetatable({
         partition = partition,
         drive = partition.drive,
-        start = math.floor(partition.startByte / sectorSize),
+        start = math.floor(partition.startByte / sectorSize) + 1,
         sectorSize = sectorSize,
         capacity = math.floor(partition.byteSize / sectorSize),
         readonly = partition.readonly,
@@ -152,7 +152,7 @@ function okffs:writeSectorBytes(sector, off, data)
     local pre = sec:sub(1, off)
     local post = sec:sub(off+#data+1)
     local written = pre .. data .. post
-    assert(self.drive.writeSector(sector+self.start, written))
+    self.drive.writeSector(sector+self.start, written)
 end
 
 okffs.signature = "OKFFS\0"
@@ -203,7 +203,7 @@ function okffs.format(partition, format, opts)
     sector = sector .. string.char(uint24ToBytes(0))
 
     sector = sector .. string.rep("\0", sectorSize - #sector)
-    assert(drive.writeSector(off, sector))
+    drive.writeSector(off+1, sector)
     return true
 end
 
