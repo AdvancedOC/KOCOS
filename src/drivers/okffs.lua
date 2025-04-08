@@ -14,7 +14,8 @@ struct okffs_dir_entry {
   uint16_t permissions;
   uint8_t ftype;
   uint24_t blockList;
-  uint8_t reserved[18];
+  uint32_t fileSize;
+  uint8_t reserved[14];
 }
 
 struct okffs_block_prefix {
@@ -44,7 +45,6 @@ struct okffs_header {
 ---@field pos integer
 -- Used to determine if cached stuff is valid
 ---@field syncedWith integer
----@field size integer
 ---@field curBlock integer
 ---@field curOff integer
 ---@field lastPosition integer
@@ -58,8 +58,12 @@ struct okffs_header {
 ---@field readonly boolean
 ---@field fileStates {[string]: KOCOS.OKFFS.FileState}
 ---@field handles {[integer]: KOCOS.OKFFS.Handle}
+---@field sectorCache {sector: integer, data: string}[]
+---@field maxSectorCacheLen integer
 local okffs = {}
 okffs.__index = okffs
+
+local SECTOR_CACHE_LIMIT = 16*1024
 
 ---@param partition KOCOS.Partition
 function okffs.create(partition)
@@ -75,6 +79,8 @@ function okffs.create(partition)
         readonly = partition.readonly,
         fileStates = {},
         handles = {},
+        sectorCache = {},
+        maxSectorCacheLen = math.floor(SECTOR_CACHE_LIMIT / sectorSize),
     }, okffs)
     -- Failed signature check
     if not manager:fetchState() then
@@ -83,9 +89,46 @@ function okffs.create(partition)
     return manager
 end
 
+---@param sector integer
+---@return string
+function okffs:lowLevelReadSector(sector)
+    for i=#self.sectorCache,1,-1 do
+        local entry = self.sectorCache[i]
+        if entry.sector == sector then
+            return entry.data
+        end
+    end
+    local sec = assert(self.drive.readSector(sector+self.start))
+    table.insert(self.sectorCache, {
+        sector = sector,
+        data = sec,
+    })
+    while #self.sectorCache > self.maxSectorCacheLen do
+        table.remove(self.sectorCache, 1)
+    end
+    return sec
+end
+
+---@param sector integer
+---@param data string
+function okffs:lowLevelWriteSector(sector, data)
+    for i=#self.sectorCache,1,-1 do
+        local entry = self.sectorCache[i]
+        if entry.sector == sector then
+            entry.data = data
+            break
+        end
+    end
+    self.drive.writeSector(sector+self.start, data)
+end
+
+function okffs:padToSector(data)
+    return data .. string.rep("\0", self.sectorSize - #data)
+end
+
 ---@return string
 function okffs:readSectorBytes(sector, off, len)
-    local sec = assert(self.drive.readSector(sector+self.start))
+    local sec = self:lowLevelReadSector(sector)
     local data = sec:sub(off+1, off+len)
     assert(#data == len, "bad offset + len")
     return data
@@ -134,7 +177,7 @@ end
 local function uintNToBytes(num, len)
     -- Little endian btw
     local b = ""
-    for i=1,len do
+    for _=1,len do
         b = b .. string.char(num % 256)
         num = math.floor(num / 256)
     end
@@ -148,11 +191,11 @@ function okffs:writeUintN(sector, off, num, len)
 end
 
 function okffs:writeSectorBytes(sector, off, data)
-    local sec = assert(self.drive.readSector(sector+self.start))
+    local sec = self:lowLevelReadSector(sector)
     local pre = sec:sub(1, off)
     local post = sec:sub(off+#data+1)
     local written = pre .. data .. post
-    self.drive.writeSector(sector+self.start, written)
+    self:lowLevelWriteSector(sector, written)
 end
 
 okffs.signature = "OKFFS\0"
@@ -168,10 +211,13 @@ function okffs:fetchState()
 end
 
 function okffs:saveState()
-    self:writeUint24(0, 6, self.nextFree)
-    self:writeUint24(0, 9, self.freeList)
-    self:writeUint24(0, 12, self.root)
-    self:writeUint24(0, 15, self.activeBlockCount)
+    local data = okffs.signature
+    data = data .. string.char(uint24ToBytes(self.nextFree))
+    data = data .. string.char(uint24ToBytes(self.freeList))
+    data = data .. string.char(uint24ToBytes(self.root))
+    data = data .. string.char(uint24ToBytes(self.activeBlockCount))
+    data = self:padToSector(data)
+    self:lowLevelWriteSector(0, data)
 end
 
 ---@param partition KOCOS.Partition
@@ -286,6 +332,7 @@ local DIR_ENTRY_SIZE = 64
 ---@field mtimeMS integer
 ---@field dirEntryBlock integer
 ---@field dirEntryOff integer
+---@field fileSize integer
 
 ---@return KOCOS.OKFFS.Entry
 function okffs:getDirectoryEntry(dirBlock, off)
@@ -299,6 +346,7 @@ function okffs:getDirectoryEntry(dirBlock, off)
     local permissions = self:readUintN(dirBlock, off+40, 2)
     local ftype = self:readUintN(dirBlock, off+42, 1)
     local blockList = self:readUint24(dirBlock, off+43)
+    local fileSize = self:readUintN(dirBlock, off+46, 4)
 
     ---@type KOCOS.OKFFS.Entry
     return {
@@ -309,6 +357,7 @@ function okffs:getDirectoryEntry(dirBlock, off)
         mtimeMS = mtimeMS,
         dirEntryBlock = dirBlock,
         dirEntryOff = off,
+        fileSize = fileSize,
     }
 end
 
@@ -324,7 +373,8 @@ function okffs:encodeDirectoryEntry(entry)
     data = data .. uintNToBytes(entry.permissions, 2)
     data = data .. string.char(typeMap[entry.type])
     data = data .. string.char(uint24ToBytes(entry.blockList))
-    data = data .. string.rep("\0", 18)
+    data = data .. uintNToBytes(entry.fileSize, 4)
+    data = data .. string.rep("\0", 14)
     return data
 end
 
@@ -443,6 +493,7 @@ function okffs:entryOf(path)
         type = "directory",
         blockList = self.root,
         mtimeMS = 0,
+        fileSize = 0,
     }
     ---@type string[]
     local parts = string.split(path, "/")
@@ -524,6 +575,7 @@ function okffs:mkdir(path, permissions)
         type = "directory",
         dirEntryBlock = 0,
         dirEntryOff = 0,
+        fileSize = 0,
     })
 end
 
@@ -538,6 +590,7 @@ function okffs:touch(path, permissions)
         type = "file",
         dirEntryBlock = 0,
         dirEntryOff = 0,
+        fileSize = 0,
     })
 end
 
@@ -559,7 +612,7 @@ end
 
 function okffs:size(path)
     local entry = self:entryOf(path)
-    if entry then return self:sizeOfBlockList(entry.blockList) end
+    if entry then return entry.fileSize end
     return 0
 end
 
@@ -633,7 +686,6 @@ function okffs:open(path, mode)
         curBlock = NULL_BLOCK,
         curOff = 0,
         lastPosition = 0,
-        size = 0,
         syncedWith = state.lastModification,
     }
     self:clearHandleCache(handle)
@@ -654,7 +706,6 @@ end
 ---@param handle KOCOS.OKFFS.Handle
 function okffs:clearHandleCache(handle)
     handle.curBlock = NULL_BLOCK
-    handle.size = 0
 end
 
 ---@param handle KOCOS.OKFFS.Handle
@@ -725,11 +776,7 @@ end
 
 ---@param handle KOCOS.OKFFS.Handle
 function okffs:getHandleSize(handle)
-    self:ensureSync(handle)
-    if handle.size ~= 0 then return handle.size end
-    handle.size = self:getByteLength(handle.state.entry.blockList)
-    handle.syncedWith = handle.state.lastModification
-    return handle.size
+    return handle.state.entry.fileSize
 end
 
 ---@param amount integer
@@ -761,9 +808,11 @@ function okffs:appendToBlockList(curBlock, data)
             chunk = data:sub(1, remaining)
             data = data:sub(remaining+1)
         end
-        self:writeSectorBytes(curBlock, 5 + len, chunk)
+        local old = self:readSectorBytes(curBlock, 5, len)
         len = len + #chunk
-        self:writeUintN(curBlock, 3, len, 2)
+        local bin = uintNToBytes(next, 3) .. uintNToBytes(len, 2) .. old .. chunk
+        bin = self:padToSector(bin)
+        self:lowLevelWriteSector(curBlock, bin)
 
         if #data == 0 then break end
 
@@ -828,9 +877,10 @@ function okffs:write(fd, data)
             self:writeUintN(curBlock, 3, curOff, 2) -- make them equal
         end
         self:appendToBlockList(curBlock, data)
+        handle.state.entry.fileSize = handle.state.entry.fileSize + #data
+        self:saveDirectoryEntry(handle.state.entry)
     end
     handle.pos = handle.pos + #data
-    handle.size = 0
     self:recordModification(handle)
     return true
 end

@@ -67,7 +67,7 @@ function testing.drive(sectorSize, capacity, name)
             error("DRIVE: out of bounds")
         end
         local sector, idx = sectorFromOff(off)
-        return drive.readSector(sector):byte(idx+1, idx+1)
+        return drive.readSector(sector):byte(idx, idx)
     end
     function drive.writeByte(off, value)
         assert(math.floor(off) == off, "DRIVE: byte offset is not integer")
@@ -78,9 +78,12 @@ function testing.drive(sectorSize, capacity, name)
         assert(value >= 0 and value < 256, "DRIVE: invalid byte")
         local sector, idx = sectorFromOff(off)
         local buffer = drive.readSector(sector)
-        local pre = buffer:sub(1, idx)
-        local post = buffer:sub(idx+2)
+        local pre = buffer:sub(1, idx-1)
+        local post = buffer:sub(idx+1)
         buffer = pre .. string.char(value) .. post
+        if #buffer ~= sectorSize then
+            error(string.format("%d %d %d", sector, idx, off))
+        end
         drive.writeSector(sector, buffer)
         return true
     end
