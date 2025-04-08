@@ -1,7 +1,7 @@
 local testing = {}
 
 function testing.uuid()
-    local hexDigits = "0123456789ABCDEF"
+    local hexDigits = "0123456789abcdef"
     local rawHex = ""
     for _=1,32 do
         local i = math.random(1, #hexDigits)

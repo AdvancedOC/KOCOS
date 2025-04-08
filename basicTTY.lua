@@ -252,12 +252,16 @@ function cmds.cp(...)
     while true do
         chunk, err = read(inFile, math.huge)
         if err then
+            close(inFile)
+            close(outFile)
             error(err)
         end
         if not chunk then break end
 
         _, err = write(outFile, chunk)
         if err then
+            close(inFile)
+            close(outFile)
             error(err)
         end
     end
@@ -272,6 +276,73 @@ function cmds.rm(...)
     for i=1,#args do
         assert(remove(args[i]))
     end
+end
+
+function cmds.lsmnt(...)
+    local data = {}
+
+    for mount, part in _K.fs.mountedPartitions() do
+        local drive = part.drive.address
+        data[drive] = data[drive] or {}
+        data[drive][part.uuid] = "/" .. mount
+    end
+
+    for drive, subdata in pairs(data) do
+        print(drive)
+        for part, mount in pairs(subdata) do
+            local info = stat(mount)
+            printf("\t%s %s %s %s", part, info.deviceName, mount, string.memformat(info.total))
+        end
+    end
+end
+
+function cmds.partcomp(...)
+    local args, opts = parse(...)
+
+    assert(args[1], "missing UUID")
+    local part = _K.fs.partitionFromUuid(args[1], {
+        allowFullDrivePartition = true,
+        autocomplete = true,
+    })
+    if part then
+        print(part.uuid)
+    else
+        print("missing")
+    end
+end
+
+function cmds.lspart(...)
+    local parts = _K.fs.findAllPartitions({allowFullDrivePartition = true, mountedOnly = false})
+    for i=1,#parts do
+        local part = parts[i]
+        printf("%s %s %s (from %s)", part.uuid, part.name, string.memformat(part.byteSize), part.drive.address)
+    end
+end
+
+function cmds.format(...)
+    local args, opts = parse(...)
+    local partUUID = assert(args[1], "missing partition")
+    local fs = args[2] or "okffs"
+
+    local part = assert(_K.fs.partitionFromUuid(partUUID), "partition not found")
+    assert(_K.fs.format(part, fs))
+end
+
+function cmds.mount(...)
+    local args, opts = parse(...)
+    local partUUID = assert(args[1], "missing partition")
+    local dir = args[2]
+    local part = assert(_K.fs.partitionFromUuid(partUUID), "partition not found")
+    assert(ftype(dir) == "directory", "mountpoint must be a directory")
+    _K.fs.mount(dir, part)
+end
+
+function cmds.shutdown(...)
+    _OS.computer.shutdown()
+end
+
+function cmds.reboot(...)
+    _OS.computer.shutdown(true)
 end
 
 function cmds.stat(...)
@@ -331,7 +402,7 @@ cat - Concatenate files (stdin is forbidden currently)
         local f, err = open(path, "r")
         if f then
             while true do
-                local data, err = read(f, 4096)
+                local data, err = read(f, 16384)
                 if err then close(f) error(err) end
                 if not data then break end
                 local allowed = maximum - total

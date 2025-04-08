@@ -12,7 +12,6 @@ function syscalls.open(proc, path, mode)
     assert(KOCOS.fs.exists(path), "not found")
 
     local f = assert(KOCOS.fs.open(path, mode))
-    KOCOS.logAll("open", f.fd)
 
     ---@type KOCOS.FileResource
     local res = {

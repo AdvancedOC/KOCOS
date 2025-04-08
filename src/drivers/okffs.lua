@@ -174,9 +174,22 @@ function okffs:saveState()
     self:writeUint24(0, 15, self.activeBlockCount)
 end
 
-function okffs.format(drive, off)
-    off = off or 0
+---@param partition KOCOS.Partition
+---@param format string
+---@param opts table?
+---@return boolean, string?
+function okffs.format(partition, format, opts)
+    local drive = partition.drive
+    if drive.type ~= "drive" then return false end
+    if format ~= "okffs" then return false end
+    opts = opts or {}
     local sectorSize = drive.getSectorSize()
+    local blockSize = opts.blockSize or sectorSize
+    if blockSize ~= sectorSize then return false end
+    if blockSize >= (2^16 + 5) then return false, "illegal block size" end
+    local sectorsPerBlock = blockSize / sectorSize
+    if sectorsPerBlock ~= math.floor(sectorsPerBlock) then return false, "block size not sector aligned" end
+    local off = math.floor(partition.startByte / sectorSize)
     local sector = ""
     -- Signature
     sector = sector .. okffs.signature
@@ -191,6 +204,7 @@ function okffs.format(drive, off)
 
     sector = sector .. string.rep("\0", sectorSize - #sector)
     assert(drive.writeSector(off, sector))
+    return true
 end
 
 ---@return integer
@@ -885,7 +899,7 @@ KOCOS.test("OKFFS driver", function()
 
     assert(okffs.create(partition) == nil)
 
-    okffs.format(drive)
+    assert(okffs.format(partition, "okffs"))
 
     local manager = assert(okffs.create(partition), "formatting failed")
 
@@ -912,7 +926,7 @@ KOCOS.test("OKFFS driver", function()
     assert(manager.activeBlockCount == 0, "incorrectly tracked active block count")
 
     -- Nuke old state
-    okffs.format(drive)
+    okffs.format(partition, "okffs")
     manager = assert(okffs.create(partition), "formatting failed")
 
     local perms = math.random(0, 2^16-1)
@@ -1003,7 +1017,7 @@ KOCOS.defer(function()
         storedKind = KOCOS.testing.uuid(),
         uuid = KOCOS.testing.uuid(),
     }
-    okffs.format(drive)
+    okffs.format(partition, "okffs")
     KOCOS.fs.mount("/tmp", partition)
     KOCOS.log("Mounted OKFFS tmp")
 end, 1)

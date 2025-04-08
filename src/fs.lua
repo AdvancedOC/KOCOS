@@ -410,6 +410,7 @@ end
 ---@param partition KOCOS.Partition
 function fs.mount(path, partition)
     path = fs.canonical(path)
+    assert(not fs.isMounted(partition), "already mounted")
     assert(fs.type(path) == "directory", "not a directory")
     assert(#fs.list(path) == 0, "not empty directory")
     local location = fs.canonical(path):sub(2)
@@ -465,6 +466,124 @@ function fs.remove(path)
     end
     local manager, truePath = fs.resolve(path)
     return manager:remove(truePath)
+end
+
+---@param partition KOCOS.Partition
+---@param format string
+---@param opts table?
+---@return boolean, string?
+function fs.format(partition, format, opts)
+    for i=#fs.drivers,1,-1 do
+        local driver = fs.drivers[i]
+        local ok, err = driver.format(partition, format, opts)
+        if ok then return true end
+        if err then return false, err end
+    end
+    return false, "unsupported"
+end
+
+---@param tested string
+---@param reference string
+---@param autocomplete boolean
+local function sameUuid(tested, reference, autocomplete)
+    if autocomplete then
+        return string.startswith(tested:gsub("%-", ""), reference)
+    end
+    return tested == reference
+end
+
+-- ONLY SUPPORTS VANILLA UNMANAGED DRIVES !!!!!!!!!!
+---@return KOCOS.Partition?
+function fs.wholeDrivePartition(drive)
+    if drive.type ~= "drive" then return end
+    ---@type KOCOS.Partition
+    return {
+        name = drive.getLabel() or drive.address:sub(1, 6),
+        drive = drive,
+        uuid = drive.address,
+        startByte = 0,
+        byteSize = drive.getCapacity(),
+        kind = "root",
+        readonly = false,
+        storedKind = drive.address,
+    }
+end
+
+---@param opts {allowFullDrivePartition: boolean, mountedOnly: boolean}
+---@return KOCOS.Partition[]
+function fs.findAllPartitions(opts)
+    local parts = {}
+    for _, partition in fs.mountedPartitions() do
+        table.insert(parts, partition)
+    end
+
+    if not opts.mountedOnly then
+        for addr in component.list() do
+            local drive = component.proxy(addr)
+            local localParts = fs.getPartitions(drive)
+            if opts.allowFullDrivePartition then
+                local wholeDrive = fs.wholeDrivePartition(drive)
+                if wholeDrive then
+                    table.insert(parts, wholeDrive)
+                end
+            end
+            for i=1,#localParts do
+                table.insert(parts, localParts[i])
+            end
+        end
+    end
+    local dupeMap = {}
+    local deduped = {}
+    for i=1,#parts do
+        local part = parts[i]
+        if not dupeMap[part.uuid] then
+            dupeMap[part.uuid] = true
+            table.insert(deduped, part)
+        end
+    end
+    return deduped
+end
+
+-- Supports autocomplete
+---@param uuid string
+---@param opts {autocomplete: boolean, allowFullDrivePartition: boolean, mountedOnly: boolean}?
+---@return KOCOS.Partition?
+function fs.partitionFromUuid(uuid, opts)
+    opts = opts or {
+        autocomplete = true,
+        allowFullDrivePartition = true,
+        mountedOnly = false,
+    }
+
+    local parts = fs.findAllPartitions(opts)
+    for i=1,#parts do
+        if sameUuid(parts[i].uuid, uuid, opts.autocomplete) then
+            return parts[i]
+        end
+    end
+    return nil
+end
+
+---@return fun(...): string?, KOCOS.Partition
+function fs.mountedPartitions()
+    return function(_, mountpoint)
+        mountpoint = next(globalTranslation, mountpoint)
+        ---@diagnostic disable-next-line: missing-return-value
+        if not mountpoint then return end
+        local manager = globalTranslation[mountpoint]
+        return mountpoint, manager:getPartition()
+    end
+end
+
+---@param partition KOCOS.Partition
+---@return boolean, string
+function fs.isMounted(partition)
+    for mountpoint, part in fs.mountedPartitions() do
+        if part.uuid == partition.uuid then
+            return true, "/" .. mountpoint
+        end
+    end
+    return false, ""
 end
 
 KOCOS.fs = fs

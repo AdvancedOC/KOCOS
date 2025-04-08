@@ -11,6 +11,10 @@ function managedfs.create(partition)
     }, managedfs)
 end
 
+function managedfs.format()
+    return false
+end
+
 function managedfs:open(path, mode)
     local fd, err = self.disk.open(path, mode)
     if err then return nil, err end
@@ -103,9 +107,9 @@ KOCOS.fs.addPartitionParser(function(parser)
         local parts = {
             {
                 startByte = 0,
-                byteSize = math.huge,
+                byteSize = parser.spaceTotal(),
                 kind = "root",
-                name = parser.getLabel(),
+                name = parser.getLabel() or parser.address:sub(1, 6),
                 uuid = parser.address,
                 storedKind = "root",
                 readonly = parser.isReadOnly(),

@@ -4,6 +4,7 @@ DevFS structure:
 
 /dev/components/<type>/<uuid> - Files to open proxies
 /dev/parts/<drive uuid>/<part uuid> - Files to access partitions. Partitions on managed partitions appear as files
+/dev/drives/<drive uuid> - Files to access whole drives.
 /dev/zero
 /dev/random
 /dev/hex
@@ -114,6 +115,7 @@ function devfs:type(path)
     if path == "hex" then return "file" end
     if path == "components" then return "directory" end
     if path == "parts" then return "directory" end
+    if path == "drives" then return "directory" end
     for addr, type in component.list() do
         if path == "components/" .. type then return "directory" end
         if string.startswith(path, "components/" .. type .. "/") then
@@ -142,6 +144,7 @@ function devfs:list(path)
             "hex",
             "components",
             "parts",
+            "drives",
         }
     end
     if path == "components" then
@@ -157,6 +160,15 @@ function devfs:list(path)
         local drives = {}
         for addr in component.list() do
             if #KOCOS.fs.getPartitions(component.proxy(addr)) > 0 then
+                table.insert(drives, addr)
+            end
+        end
+        return drives
+    end
+    if path == "drives" then
+        local drives = {}
+        for addr, type in component.list() do
+            if type == "drive" then
                 table.insert(drives, addr)
             end
         end
@@ -200,6 +212,11 @@ function devfs:size(path)
                 return component.invoke(addr, "spaceTotal")
             end
             if type == "drive" then
+                return component.invoke(addr, "getCapacity")
+            end
+        end
+        if type == "drive" then
+            if path == "drives/" .. addr then
                 return component.invoke(addr, "getCapacity")
             end
         end
