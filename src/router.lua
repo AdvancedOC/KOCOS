@@ -2,6 +2,12 @@ local router = {}
 
 router.drivers = {}
 
+router.events = KOCOS.event.create(KOCOS.maxEventBacklog)
+
+router.EVENT_CONNECT = "connect"
+router.EVENT_DISCONNECT = "disconnect"
+router.EVENT_PACKET = "packet"
+
 ---@class KOCOS.Network
 ---@field uuid string
 ---@field protocols string[]
@@ -29,6 +35,19 @@ end
 ---@param network KOCOS.Network
 function router.connectTo(network)
     router.connectingTo = network
+    router.events.push(router.EVENT_CONNECT, network.uuid)
+end
+
+---@param network KOCOS.Network
+---@param protocol string
+---@return boolean
+function router.networkSupports(network, protocol)
+    for i=1,#network.protocols do
+        if network.protocols[i] == protocol then
+            return true
+        end
+    end
+    return false
 end
 
 ---@param network? KOCOS.Network
@@ -56,13 +75,29 @@ function router.addNetwork(network)
     router.networks[network.uuid] = network
 end
 
+---@param uuid string
 function router.forget(uuid)
+    if router.currentNetworkUuid() == uuid then
+        router.disconnect()
+    end
     router.networks[uuid] = nil
 end
 
-function router.send(protocol, packet)
+function router.disconnect()
+    if router.isOnline() then
+        router.events.push(router.EVENT_DISCONNECT, router.current.uuid)
+        router.current.manager:disconnect(router.current)
+    end
+    router.current = nil
+end
+
+function router.send(packet)
     local current = assert(router.current, "offline")
-    current.manager:send(current, protocol, packet)
+    current.manager:send(current, packet)
+end
+
+function router.receivedPacket(packet)
+    router.events.push(router.EVENT_PACKET, packet)
 end
 
 function router.update()
