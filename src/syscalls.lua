@@ -616,3 +616,5 @@ end
 -- End of user syscalls
 
 KOCOS.syscalls = syscalls
+
+KOCOS.log("Syscalls subsystem loaded")

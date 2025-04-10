@@ -3,9 +3,9 @@ local sources = {
     "src/prelude.lua",
     -- All the other shit
     "src/utils.lua",
+    "src/event.lua",
     "src/testing.lua",
     "src/bit32.lua",
-    "src/event.lua",
     "src/component.lua",
     "src/fs.lua",
     "src/process.lua",

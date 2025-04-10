@@ -695,7 +695,9 @@ function okffs:open(path, mode)
     if mode == "w" then
         local entry = handle.state.entry
         self:freeBlockList(entry.blockList)
+        entry.fileSize = 0
         entry.blockList = NULL_BLOCK
+        self:saveDirectoryEntry(entry)
 
         -- we did a modification!!!!
         self:recordModification(handle)
@@ -1071,3 +1073,5 @@ KOCOS.defer(function()
     KOCOS.fs.mount("/tmp", partition)
     KOCOS.log("Mounted OKFFS tmp")
 end, 1)
+
+KOCOS.log("OKFFS driver loaded")

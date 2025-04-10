@@ -89,3 +89,5 @@ function internet:async_read()
 end
 
 KOCOS.network.addDriver(internet.create)
+
+KOCOS.log("Internet driver loaded")

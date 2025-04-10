@@ -118,3 +118,5 @@ function network.close(socket)
 end
 
 KOCOS.network = network
+
+KOCOS.log("Network subsystem loaded")

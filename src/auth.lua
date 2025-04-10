@@ -114,3 +114,5 @@ function perms.canRead(puser, permissions)
 end
 
 KOCOS.perms = perms
+
+KOCOS.log("Auth and perms subsystems loaded")

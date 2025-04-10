@@ -280,3 +280,5 @@ KOCOS.defer(function()
     }
     KOCOS.fs.mount("/dev", partition)
 end, 2)
+
+KOCOS.log("DevFS driver loaded")

@@ -120,3 +120,5 @@ KOCOS.fs.addPartitionParser(function(parser)
         return parts, "managed"
     end
 end)
+
+KOCOS.log("ManagedFS driver loaded")

@@ -193,3 +193,5 @@ do
         end
     end
 end
+
+KOCOS.log("Testing subsystem loaded")

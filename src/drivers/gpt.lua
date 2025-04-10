@@ -129,3 +129,5 @@ function KOCOS.gpt(drive)
 end
 
 KOCOS.fs.addPartitionParser(KOCOS.gpt)
+
+KOCOS.log("GPT driver loaded")
