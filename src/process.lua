@@ -146,6 +146,7 @@ KOCOS.thread = thread
 ---@field args {[number]: string}
 ---@field env {[string]: string}
 ---@field pid integer
+---@field uid integer
 ---@field status integer
 ---@field events KOCOS.EventSystem
 ---@field namespace _G
@@ -190,6 +191,7 @@ local function rawSpawn(init, config)
     local cmdline = config.cmdline or ""
     local args = config.args or {}
     local env = config.env or {}
+    local uid = config.uid or 0
     local pid = process.lpid + 1
 
     local proc = setmetatable({}, process)
@@ -222,6 +224,8 @@ local function rawSpawn(init, config)
     namespace.arg = table.copy(args)
     namespace._G = namespace
     namespace._VERSION = _VERSION
+    namespace._OSVERSION = _OSVERSION or "Unknown KOCOS"
+    namespace._KVERSION = KOCOS.version
     namespace.assert = assert
     namespace.error = error
     namespace.getmetatable = getmetatable
@@ -264,6 +268,7 @@ local function rawSpawn(init, config)
     proc.threads = {}
     proc.modules = {}
     proc.resources = {}
+    proc.uid = 0
 
     if type(init) == "function" then
         proc:attach(init)

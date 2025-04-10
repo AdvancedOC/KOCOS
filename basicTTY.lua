@@ -229,6 +229,8 @@ function cmds.ls(...)
                 fc = 33
             elseif ft == "directory" then
                 fc = 36
+            elseif string.startswith(f, ".") then
+                fc = 35
             elseif string.endswith(f, ".lua") then
                 fc = 92
             end
@@ -383,7 +385,7 @@ function cmds.stat(...)
         print("\tPartition Name: " .. info.deviceName)
         print("\tDrive Type: " .. info.driveType)
         print("\tDrive Name: " .. info.driveName)
-        print("\tIs Mount: " .. info.isMount)
+        print("\tIs Mount: " .. tostring(info.isMount))
     end
 end
 
@@ -494,6 +496,80 @@ function cmds.cstat(...)
     if info.isRobot then print("Robot") end
     if #info.users == 0 then table.insert(info.users, "none") end
     printf("Users: %s", table.concat(info.users))
+end
+
+
+function cmds.fetch(...)
+    local asciiLines = string.split(_K.asciiArt, "\n")
+    local asciiWidth = 0
+    for i=1,#asciiLines do asciiWidth = math.max(asciiWidth, #asciiLines[i]) end
+
+    local spacing = string.rep(" ", 2)
+
+    local data = {}
+    local info = assert(cstat())
+
+    local uptime = info.uptime
+    local ms = tostring(math.floor((uptime * 1000) % 1000))
+    local secs = tostring(math.floor(uptime) % 60)
+    local mins = tostring(math.floor(uptime / 60) % 60)
+    local hours = tostring(math.floor(uptime / 3600) % 60)
+
+    while #ms < 3 do ms = "0" .. ms end
+    while #secs < 2 do secs = "0" .. secs end
+    while #mins < 2 do mins = "0" .. mins end
+    while #hours < 2 do hours = "0" .. hours end
+
+    local function coloriser(color)
+        return function(text)
+            return "\x1b[" .. color .. "m" .. text .. "\x1b[0m"
+        end
+    end
+
+    local infoColor = coloriser("38;2;85;85;255")
+    local art = coloriser(34)
+
+    table.insert(data, "OS: " .. _OSVERSION)
+    table.insert(data, "Kernel: " .. _KVERSION)
+    local memUsed = info.memTotal - info.memFree
+    table.insert(data, string.format("Memory: %s / %s (%.2f%%)", string.memformat(memUsed), string.memformat(info.memTotal), memUsed / info.memTotal * 100))
+    table.insert(data, string.format("Uptime: %s:%s:%s.%s", hours, mins, secs, ms))
+    table.insert(data, "Boot: " .. info.boot:sub(1, 6) .. "...")
+    table.insert(data, "Architecture: " .. info.arch)
+    table.insert(data, "Threads: " .. info.threadCount)
+    table.insert(data, string.format("Battery: %.2f%%", info.energy / info.maxEnergy * 100))
+    do
+        local color = ""
+        for i=0,7 do
+            local dark = 40 + i
+            local bright = 100 + i
+            color = color .. string.format("\x1b[%dm  \x1b[%dm  \x1b[0m", dark, bright)
+        end
+        table.insert(data, "Color: " .. color)
+    end
+    for mountpoint in _K.fs.mountedPartitions() do
+        local mountInfo = assert(stat("/" .. mountpoint))
+        if mountInfo.total > 0 then
+            table.insert(data, string.format("Disk (%s): %s / %s (%.2f%%)", "/" .. mountpoint, mountInfo.used, mountInfo.total, mountInfo.used / mountInfo.total * 100))
+        end
+    end
+
+    local lineCount = math.max(#asciiLines, #data)
+    for i=1,lineCount do
+        local line = asciiLines[i] or ""
+        line = art(line) .. string.rep(" ", asciiWidth - #line)
+        if data[i] then
+            local colon = string.find(data[i], ":", nil, true)
+            local before = string.sub(data[i], 1, colon)
+            local after = string.sub(data[i], colon + 1)
+            line = line .. spacing .. infoColor(before) .. after
+        end
+        print(line)
+    end
+end
+
+function cmds.clear()
+    write(0, "\x1b[2J")
 end
 
 ---@param a string

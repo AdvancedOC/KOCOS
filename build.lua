@@ -18,6 +18,9 @@ local sources = {
     "src/drivers/gpt.lua",
     "src/drivers/okffs.lua",
     "src/drivers/internet.lua",
+    "src/drivers/auth.lua",
+    -- Needs to be last cuz self-boots.
+    "src/postlude.lua",
 }
 
 local out = arg[1] or "kernel.lua"

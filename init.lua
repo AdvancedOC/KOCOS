@@ -1,10 +1,13 @@
 local rootfs = computer.getBootAddress()
 
+_OSVERSION = "KOCOS Demo"
+
 local config = {
     rootfs = rootfs,
     init = "/basicTTY.lua",
     logThreadEvents = true,
     syscallTraceback = false,
+    needsExtensions = true,
 }
 
 -- Will be overwritten by KOCOS anyways

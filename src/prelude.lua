@@ -28,6 +28,18 @@ KOCOS.syscallTraceback = KOCOS.default(KOCOS_CONFIG.syscallTraceback, false)
 
 KOCOS.version = "KOCOS incomplete"
 
+-- Generated with https://patorjk.com/software/taag/#p=display&f=Big%20Money-ne&t=KOCOS
+KOCOS.asciiArt = [[
+ /$$   /$$  /$$$$$$   /$$$$$$   /$$$$$$   /$$$$$$ 
+| $$  /$$/ /$$__  $$ /$$__  $$ /$$__  $$ /$$__  $$
+| $$ /$$/ | $$  \ $$| $$  \__/| $$  \ $$| $$  \__/
+| $$$$$/  | $$  | $$| $$      | $$  | $$|  $$$$$$ 
+| $$  $$  | $$  | $$| $$      | $$  | $$ \____  $$
+| $$\  $$ | $$  | $$| $$    $$| $$  | $$ /$$  \ $$
+| $$ \  $$|  $$$$$$/|  $$$$$$/|  $$$$$$/|  $$$$$$/
+|__/  \__/ \______/  \______/  \______/  \______/ 
+]]
+
 function KOCOS.logAll(...)
     local t = {...}
     for i=1,#t do t[i] = tostring(t[i]) end
@@ -136,11 +148,17 @@ end
 if 1<0 then
     _K = KOCOS
     _OS = _G
+    _OSVERSION = "Unknown KOCOS"
+    _KVERSION = KOCOS.version
 
     ---@param sys string
     ---@return ...
     function syscall(sys, ...) end
 end
+
+KOCOS.defer(function()
+    KOCOS.log("Welcome to " .. (_OSVERSION or "Unknown OS") .. "\x1b[34m\n" .. KOCOS.asciiArt .. "\x1b[0m")
+end, math.huge)
 
 if KOCOS.init then
     KOCOS.defer(function()

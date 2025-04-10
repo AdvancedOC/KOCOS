@@ -11,6 +11,13 @@ function syscalls.open(proc, path, mode)
 
     assert(KOCOS.fs.exists(path), "not found")
 
+    local perms = KOCOS.fs.permissionsOf(path)
+    assert(KOCOS.perms.canRead(proc.uid, perms), "permission denied")
+
+    if mode ~= "r" then
+        assert(KOCOS.perms.canWrite(proc.uid, perms), "permission denied")
+    end
+
     local f = assert(KOCOS.fs.open(path, mode))
 
     ---@type KOCOS.FileResource
@@ -35,6 +42,9 @@ function syscalls.touch(proc, path, permissions)
     assert(permissions >= 0 and permissions < 2^16, "bad permissions")
     assert(not KOCOS.fs.exists(path), "already exists")
 
+    local parentPerms = KOCOS.fs.permissionsOf(KOCOS.fs.parentOf(path))
+    assert(KOCOS.perms.canWrite(proc.uid, parentPerms), "permission denied")
+
     assert(KOCOS.fs.touch(path, permissions))
 end
 
@@ -45,12 +55,18 @@ function syscalls.mkdir(proc, path, permissions)
     assert(permissions >= 0 and permissions < 2^16, "bad permissions")
     assert(not KOCOS.fs.exists(path), "already exists")
 
+    local parentPerms = KOCOS.fs.permissionsOf(KOCOS.fs.parentOf(path))
+    assert(KOCOS.perms.canWrite(proc.uid, parentPerms), "permission denied")
+
     assert(KOCOS.fs.mkdir(path, permissions))
 end
 
 ---@param path string
 function syscalls.remove(proc, path)
     assert(type(path) == "string", "bad path")
+    assert(KOCOS.fs.exists(path), "not found")
+    local perms = KOCOS.fs.permissionsOf(path)
+    assert(KOCOS.perms.canWrite(proc.uid, perms), "permission denied")
     assert(KOCOS.fs.remove(path))
 end
 
@@ -189,6 +205,7 @@ function syscalls.stat(proc, path)
     info.used = KOCOS.fs.spaceUsed(path)
     info.total = KOCOS.fs.spaceTotal(path)
     info.size = KOCOS.fs.size(path)
+    info.perms = KOCOS.fs.permissionsOf(path)
     info.mtime = 0
     info.uauth = 2^16-1
     info.isMount = KOCOS.fs.isMount(path)
@@ -242,6 +259,8 @@ end
 
 ---@param path string
 function syscalls.list(proc, path)
+    local perms = KOCOS.fs.permissionsOf(path)
+    assert(KOCOS.perms.canWrite(proc.uid, perms), "permission denied")
     return assert(KOCOS.fs.list(path))
 end
 
@@ -404,6 +423,7 @@ function syscalls.pinfo(proc, pid)
         env = requested.env,
         cmdline = requested.cmdline,
         ring = requested.ring,
+        uid = requested.uid,
         parent = requested.parent,
         status = requested.status,
         children = {},
@@ -474,6 +494,8 @@ function syscalls.pspawn(proc, init, config)
         cmdline = config.cmdline or init,
         args = table.copy(config.args) or {[0]=init},
         env = table.copy(config.env or proc.env),
+        -- User ID changes can only happen with a login()
+        uid = proc.uid,
         parent = proc.pid,
     }
     local fdMap = table.copy(config.fdMap) or {
@@ -538,5 +560,59 @@ function syscalls.psignal(proc, pid, event, ...)
 end
 
 -- End of process syscalls
+
+-- Start of user syscalls
+
+function syscalls.login(proc, user, ring, password)
+    assert(type(user) == "number", "bad uid")
+    assert(math.floor(user) == user, "bad uid")
+    assert(type(ring) == "number", "bad ring")
+    assert(math.floor(ring) == ring, "bad ring")
+    assert(ring >= 0 and ring <= 3, "bad ring")
+    assert(type(password) == "string", "bad string")
+
+    if not KOCOS.auth.isAllowed(user, ring, password) then
+        error("permission denied")
+    end
+
+    proc.uid = user
+    proc.ring = ring
+end
+
+function syscalls.uinfo(proc, user)
+    assert(type(user) == "number", "bad uid")
+    assert(math.floor(user) == user, "bad uid")
+    return KOCOS.auth.userInfo(user)
+end
+
+function syscalls.uginfo(proc, group)
+    assert(type(group) == "number", "bad gid")
+    assert(math.floor(group) == group, "bad gid")
+    return KOCOS.auth.groupInfo(group)
+end
+
+function syscalls.ulist(proc, group)
+    assert(type(group) == "nil" or type(group) == "number", "bad gid")
+    if group then
+        assert(math.floor(group) == group, "bad gid")
+    end
+    return KOCOS.auth.listUsers(group)
+end
+
+function syscalls.ugroups(proc)
+    return KOCOS.auth.listGroups()
+end
+
+function syscalls.ufindUser(proc, name)
+    assert(type(name) == "string", "bad name")
+    return KOCOS.auth.userByName(name)
+end
+
+function syscalls.ufindGroup(proc, name)
+    assert(type(name) == "string", "bad name")
+    return KOCOS.auth.groupByName(name)
+end
+
+-- End of user syscalls
 
 KOCOS.syscalls = syscalls

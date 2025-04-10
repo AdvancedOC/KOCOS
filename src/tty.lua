@@ -23,7 +23,7 @@ local stdClrs = {
     [91] = color(255, 85, 85), -- bright red
     [92] = color(85, 255, 85), -- bright green
     [93] = color(255, 255, 85), -- bright yellow
-    [94] = color(85, 85, 255), -- bright blue
+    [94] = color(59, 142, 234), -- bright blue
     [95] = color(255, 85, 255), -- bright magenta
     [96] = color(85, 255, 255), -- bright cyan
     [97] = color(255, 255, 255), -- bright white
@@ -174,6 +174,49 @@ function tty:processEscape(c)
             if #args == 0 then args = {0} end
             while #args > 0 do
                 self:doGraphicalAction(args)
+            end
+        end
+
+        if action == "H" then
+            local strArgs = string.split(params, ";")
+            local args = {}
+            for i=1,#strArgs do
+                args[i] = tonumber(strArgs[i]) or 0
+            end
+            local x = tonumber(args[1] or "") or 1
+            local y = tonumber(args[2] or "") or 1
+
+            x = math.clamp(x, 1, self.w)
+            y = math.clamp(y, 1, self.h)
+
+            self.x = x
+            self.y = y
+        end
+
+        if action == "J" then
+            -- Only support full screen clearing for now
+            if params == "2" then
+                self:clear()
+            end
+        end
+
+        if action == "K" then
+            local y = self.y
+            if params ~= "" then
+                y = tonumber(params) or 1
+            end
+            self.gpu.fill(1, y, self.w, 1, " ")
+        end
+
+        if action == "i" then
+            -- CSI 5i for ON and CSI 4i for OFF, though we let any invalid param also be off.
+            self.auxPort = params == "5"
+        end
+
+        if action == "n" then
+            if params == "6" then
+                -- CSI 6n asks for a status report
+                table.insert(self.responses, "\x1b[" .. tostring(self.x) .. ";" .. tostring(self.y) .. "R")
             end
         end
     elseif start == ']' then
