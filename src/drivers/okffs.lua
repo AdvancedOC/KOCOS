@@ -254,7 +254,7 @@ function okffs.format(partition, format, opts)
 end
 
 ---@return integer
-function okffs:allocBlock()
+function okffs:allocBlockUntracked()
     if self.freeList == 0 then
         local block = self.nextFree
         if block == self.capacity then
@@ -262,12 +262,17 @@ function okffs:allocBlock()
         end
         self.nextFree = self.nextFree + 1
         self.activeBlockCount = self.activeBlockCount + 1
-        self:saveState()
         return block
     end
     local block = self.freeList
     self.freeList = self:readUint24(block, 0)
     self.activeBlockCount = self.activeBlockCount + 1
+    return block
+end
+
+---@return integer
+function okffs:allocBlock()
+    local block = self:allocBlockUntracked()
     self:saveState()
     return block
 end
@@ -275,7 +280,7 @@ end
 local NULL_BLOCK = 0
 
 ---@param block integer
-function okffs:freeBlock(block)
+function okffs:freeBlockUntracked(block)
     if block == 0 then return end -- Freeing NULL is fine
     self:writeUint24(block, 0, self.freeList)
     self.freeList = block
@@ -284,26 +289,45 @@ function okffs:freeBlock(block)
 end
 
 ---@param block integer
+function okffs:freeBlock(block)
+    self:freeBlockUntracked(block)
+    self:saveState()
+end
+
+---@param block integer
 function okffs:freeBlockList(block)
     if block == 0 then return end -- Freeing NULL is fine
     while block ~= NULL_BLOCK do
         local next = self:readUint24(block, 0)
-        self:freeBlock(block)
+        self:freeBlockUntracked(block)
         block = next
     end
+    self:saveState()
 end
 
-function okffs:allocDirectoryBlock()
-    local block = self:allocBlock()
+function okffs:allocDirectoryBlockUntracked()
+    local block = self:allocBlockUntracked()
     self:writeUint24(block, 0, 0) -- Next
     self:writeUintN(block, 3, 0, 2) -- File count
     return block
 end
 
-function okffs:allocFileBlock()
-    local block = self:allocBlock()
+function okffs:allocDirectoryBlock()
+    local block = self:allocDirectoryBlockUntracked()
+    self:saveState()
+    return block
+end
+
+function okffs:allocFileBlockUntracked()
+    local block = self:allocBlockUntracked()
     self:writeUint24(block, 0, 0) -- Next
     self:writeUintN(block, 3, 0, 2) -- Used bytes
+    return block
+end
+
+function okffs:allocFileBlock()
+    local block = self:allocFileBlockUntracked()
+    self:saveState()
     return block
 end
 
@@ -476,7 +500,7 @@ end
 
 function okffs:ensureRoot()
     if self.root == NULL_BLOCK then
-        self.root = self:allocDirectoryBlock()
+        self.root = self:allocDirectoryBlockUntracked()
         self:saveState()
     end
 end
@@ -819,12 +843,13 @@ function okffs:appendToBlockList(curBlock, data)
         if #data == 0 then break end
 
         local afterwards = next
-        next = self:allocFileBlock()
+        next = self:allocFileBlockUntracked()
         self:writeUint24(next, 0, afterwards)
         self:writeUint24(curBlock, 0, next)
 
         curBlock = next
     end
+    self:saveState()
 end
 
 ---@param curBlock integer
