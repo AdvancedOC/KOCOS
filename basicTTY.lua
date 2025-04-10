@@ -205,6 +205,11 @@ end
 function cmds.ls(...)
     local args, opts = parse(...)
 
+    local function color(x)
+        if not (opts.c or opts.color) then return "" end
+        return "\x1b[" .. tostring(x) .. "m"
+    end
+
     if #args == 0 then table.insert(args, "/") end
     for i=1,#args do
         local p = args[i]
@@ -217,8 +222,17 @@ function cmds.ls(...)
         for j=1,#l do
             local f = l[j]
             local fp = (p .. "/" .. f):gsub("%/%/", "/")
-            local data = f
+            local ft = assert(ftype(fp))
             local info = assert(stat(fp))
+            local fc = 0
+            if info.isMount then
+                fc = 33
+            elseif ft == "directory" then
+                fc = 36
+            elseif string.endswith(f, ".lua") then
+                fc = 92
+            end
+            local data = color(fc) .. f .. color(0)
             if opts.s or opts.h or opts.l then
                 local size = info.size
                 if opts.h then
@@ -369,6 +383,7 @@ function cmds.stat(...)
         print("\tPartition Name: " .. info.deviceName)
         print("\tDrive Type: " .. info.driveType)
         print("\tDrive Name: " .. info.driveName)
+        print("\tIs Mount: " .. info.isMount)
     end
 end
 
@@ -506,7 +521,7 @@ end
 
 local function myBeloved()
     while true do
-        write(stdout, "> ")
+        write(stdout, "\x1b[34m> \x1b[0m")
         local line = readLine()
 
         -- Basic program that traverses filesystem

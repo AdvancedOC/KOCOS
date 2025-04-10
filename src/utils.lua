@@ -41,3 +41,11 @@ end
 function string.endswith(s, suffix)
     return s:sub(-#suffix) == suffix
 end
+
+function math.clamp(x, min, max)
+    return math.min(max, math.max(x, min))
+end
+
+function math.map(x, min1, max1, min2, max2)
+    return min2 + ((x - min1) / (max1 - min1)) * (max2 - min2)
+end
