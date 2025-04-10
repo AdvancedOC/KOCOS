@@ -31,3 +31,11 @@ These communicate via IPC, where the address is a key into a big table.
 
 A simple syscall to change a permission at a path.
 Requires write permissions for that path.
+
+# OKFFS mode changes
+
+New `a` mode for the current write behavior.
+Make `w` mode overwrite instead.
+Add a `erase` syscall to erase bytes starting at the file position.
+
+ManagedFS won't support `a` or `erase`.
