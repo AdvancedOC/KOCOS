@@ -169,10 +169,6 @@ if 1<0 then
     function syscall(sys, ...) end
 end
 
-KOCOS.defer(function()
-    KOCOS.log("Welcome to " .. (_OSVERSION or "Unknown OS") .. "\x1b[34m\n" .. KOCOS.asciiArt .. "\x1b[0m")
-end, math.huge)
-
 if KOCOS.init then
     KOCOS.defer(function()
         KOCOS.log("Running " .. KOCOS.init)

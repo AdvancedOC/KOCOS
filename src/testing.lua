@@ -117,9 +117,9 @@ function KOCOS.test(name, func)
         KOCOS.log("Testing %s [%d / %d]...", name, checkedCount, testCount)
         local ok, err = xpcall(func, debug.traceback)
         if ok then
-            KOCOS.log("PASSED")
+            KOCOS.log("\x1b[32mPASSED\x1b[0m")
         else
-            KOCOS.logPanic("FAILED: %s", err)
+            KOCOS.logPanic("\x1b[31mFAILED\x1b[0m: %s", err)
         end
     end, -1000 - testCount)
 end

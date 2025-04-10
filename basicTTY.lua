@@ -498,9 +498,20 @@ function cmds.cstat(...)
     printf("Users: %s", table.concat(info.users))
 end
 
+-- Generated with https://patorjk.com/software/taag/#p=display&f=Big%20Money-ne&t=KOCOS
+local kocosAsciiArt = [[
+ /$$   /$$  /$$$$$$   /$$$$$$   /$$$$$$   /$$$$$$ 
+| $$  /$$/ /$$__  $$ /$$__  $$ /$$__  $$ /$$__  $$
+| $$ /$$/ | $$  \ $$| $$  \__/| $$  \ $$| $$  \__/
+| $$$$$/  | $$  | $$| $$      | $$  | $$|  $$$$$$ 
+| $$  $$  | $$  | $$| $$      | $$  | $$ \____  $$
+| $$\  $$ | $$  | $$| $$    $$| $$  | $$ /$$  \ $$
+| $$ \  $$|  $$$$$$/|  $$$$$$/|  $$$$$$/|  $$$$$$/
+|__/  \__/ \______/  \______/  \______/  \______/ 
+]]
 
 function cmds.fetch(...)
-    local asciiLines = string.split(_K.asciiArt, "\n")
+    local asciiLines = string.split(kocosAsciiArt, "\n")
     local asciiWidth = 0
     for i=1,#asciiLines do asciiWidth = math.max(asciiWidth, #asciiLines[i]) end
 
