@@ -88,6 +88,18 @@ function KOCOS.runDeferred(timeout)
     return #deferred > 0
 end
 
+local looped = {}
+
+function KOCOS.runOnLoop(func)
+    table.insert(looped, func)
+end
+
+function KOCOS.runLoopedFuncs()
+    for i=1,#looped do
+        looped[i]()
+    end
+end
+
 function KOCOS.pcall(f, ...)
     local ok, err = xpcall(f, debug.traceback, ...)
     if not ok then
@@ -130,6 +142,7 @@ function KOCOS.loop()
     while true do
         local panicked = false
         panicked = panicked or not KOCOS.pcall(KOCOS.event.process, 0.05)
+        panicked = panicked or not KOCOS.pcall(KOCOS.runLoopedFuncs)
         panicked = panicked or not KOCOS.pcall(KOCOS.process.run)
         panicked = panicked or not KOCOS.pcall(KOCOS.runDeferred, 0.05)
         if lastPanicked and panicked then

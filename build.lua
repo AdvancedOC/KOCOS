@@ -12,13 +12,14 @@ local sources = {
     "src/network.lua",
     "src/syscalls.lua",
     "src/tty.lua",
+    "src/auth.lua",
+    "src/router.lua",
     "src/drivers/procfs.lua",
     "src/drivers/devfs.lua",
     "src/drivers/managedfs.lua",
     "src/drivers/gpt.lua",
     "src/drivers/okffs.lua",
     "src/drivers/internet.lua",
-    "src/drivers/auth.lua",
     -- Needs to be last cuz self-boots.
     "src/postlude.lua",
 }

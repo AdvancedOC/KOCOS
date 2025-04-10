@@ -32,3 +32,8 @@ Notes that should be supported:
 
 A new "domain" protocol with the "channel" subprotocol.
 These communicate via IPC, where the address is a key into a big table.
+
+# Chown syscall
+
+A simple syscall to change a permission at a path.
+Requires write permissions for that path.
