@@ -1,9 +1,3 @@
-# Router System
-> KOCOS.router
-
-A system that allows the kernel to handle dealing with routers.
-Useful for network drivers.
-
 # Radio System
 > KOCOS.radio
 
