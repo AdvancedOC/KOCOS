@@ -55,6 +55,8 @@ struct okffs_header {
 ---@field start integer
 ---@field sectorSize integer
 ---@field capacity integer
+---@field platterSize integer
+---@field platterCount integer
 ---@field readonly boolean
 ---@field fileStates {[string]: KOCOS.OKFFS.FileState}
 ---@field handles {[integer]: KOCOS.OKFFS.Handle}
@@ -70,12 +72,15 @@ function okffs.create(partition)
     if partition.kind == "reserved" then return end -- fast ass skip
     if partition.drive.type ~= "drive" then return end
     local sectorSize = partition.drive.getSectorSize()
+    local platterCount = partition.drive.getPlatterCount()
     local manager = setmetatable({
         partition = partition,
         drive = partition.drive,
         start = math.floor(partition.startByte / sectorSize) + 1,
         sectorSize = sectorSize,
         capacity = math.floor(partition.byteSize / sectorSize),
+        platterSize = math.floor(partition.byteSize / sectorSize / platterCount),
+        platterCount = platterCount,
         readonly = partition.readonly,
         fileStates = {},
         handles = {},
@@ -251,6 +256,21 @@ function okffs.format(partition, format, opts)
     sector = sector .. string.rep("\0", sectorSize - #sector)
     drive.writeSector(off+1, sector)
     return true
+end
+
+---@param block integer
+---@return integer, integer
+function okffs:getPlatterSectorPostition(block)
+    local platter = math.floor(block / self.platterSize)
+    local sector = block % self.platterSize
+    return platter, sector
+end
+
+---@param platter integer
+---@param sector integer
+---@return integer
+function okffs:computeBlockLocation(platter, sector)
+    return platter * self.platterSize + sector
 end
 
 ---@return integer
