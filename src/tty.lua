@@ -13,7 +13,7 @@ local stdClrs = {
     -- BG is auto-computed.
     [30] = color(0, 0, 0), -- black
     [31] = color(205, 49, 49), -- red
-    [32] = color(13, 118, 121), -- green
+    [32] = color(13, 188, 121), -- green
     [33] = color(229, 229, 16), -- yellow
     [34] = color(36, 114, 200), -- blue
     [35] = color(188, 63, 188), -- magenta
