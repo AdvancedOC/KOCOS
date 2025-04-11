@@ -1,2 +1,5 @@
 kernel.lua
 run_ocelot.sh
+# KELP stuff
+*.o
+*.so

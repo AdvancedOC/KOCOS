@@ -28,18 +28,6 @@ KOCOS.syscallTraceback = KOCOS.default(KOCOS_CONFIG.syscallTraceback, false)
 
 KOCOS.version = "KOCOS incomplete"
 
--- Generated with https://patorjk.com/software/taag/#p=display&f=Big%20Money-ne&t=KOCOS
-KOCOS.asciiArt = [[
- /$$   /$$  /$$$$$$   /$$$$$$   /$$$$$$   /$$$$$$ 
-| $$  /$$/ /$$__  $$ /$$__  $$ /$$__  $$ /$$__  $$
-| $$ /$$/ | $$  \ $$| $$  \__/| $$  \ $$| $$  \__/
-| $$$$$/  | $$  | $$| $$      | $$  | $$|  $$$$$$ 
-| $$  $$  | $$  | $$| $$      | $$  | $$ \____  $$
-| $$\  $$ | $$  | $$| $$    $$| $$  | $$ /$$  \ $$
-| $$ \  $$|  $$$$$$/|  $$$$$$/|  $$$$$$/|  $$$$$$/
-|__/  \__/ \______/  \______/  \______/  \______/ 
-]]
-
 function KOCOS.logAll(...)
     local t = {...}
     for i=1,#t do t[i] = tostring(t[i]) end

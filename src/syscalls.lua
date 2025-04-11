@@ -541,6 +541,14 @@ function syscalls.pspawn(proc, init, config)
     return child.pid
 end
 
+---@param symbol string
+function syscalls.psymbol(proc, symbol)
+    assert(type(symbol) == "string", "bad symbol")
+    local data = proc.modules[symbol]
+    assert(data, "not found")
+    return data
+end
+
 ---@param pid integer
 ---@param event string
 function syscalls.psignal(proc, pid, event, ...)
