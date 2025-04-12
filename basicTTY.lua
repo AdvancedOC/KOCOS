@@ -739,34 +739,34 @@ end
 
 function cmds.unreliable(...)
     local args, opts = parse(...)
-    local odds = tonumber(args[1]) or 1
+    local odds = tonumber(args[1]) or 30
     odds = odds / 100
     local spread = tonumber(args[2]) or 15
     spread = spread / 100
     local visited = {}
-    local exempt = {
-        pcall = true,
-        assert = true,
-        bsod = true,
-    }
     local function makeUnreliable(t)
         if visited[t] then return end
         visited[t] = true
         for k, v in pairs(t) do
-            if type(v) == "function" and math.random() < spread and not exempt[k] then
+            if type(v) == "function" and math.random() < spread then
                 t[k] = function(...)
                     if math.random() < odds then
                         error("unreliable")
                     end
                     return v(...)
                 end
-            elseif type(v) == "table" and k ~= "process" then
+            -- TTY is safe because it just destroys this program if it breaks
+            elseif type(v) == "table" then
                 makeUnreliable(v)
             end
         end
     end
     -- Simulate extremely buggy kernel
-    makeUnreliable(_K)
+    makeUnreliable(_K.syscalls)
+    makeUnreliable(_K.event)
+    makeUnreliable(_K.network)
+    makeUnreliable(_K.process)
+    makeUnreliable(_K.auth)
 end
 
 function cmds.bsod()
