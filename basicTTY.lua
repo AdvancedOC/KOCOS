@@ -1113,7 +1113,7 @@ local function myBeloved()
         -- Basic program that traverses filesystem
         local parts = string.split(line, " ")
 
-        local cmd = parts[1]
+        local cmd = parts[1] or ""
         local args = {table.unpack(parts, 2)}
         if cmds[cmd] then
             local ok, err = xpcall(cmds[cmd], debug.traceback, args)
