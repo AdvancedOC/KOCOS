@@ -1,9 +1,3 @@
-# KELP binaries, libraries and loader.
-
-Rework the KELP format to be better.
-Rewrite luac to work better.
-Write ld, ldd, objdump, make.
-
 # libkernel
 
 Library that defines wrappers for all the syscalls.
