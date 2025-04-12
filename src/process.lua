@@ -103,7 +103,7 @@ function thread:tick()
     if thread:dead() then return end
     if thread:suspended() then return end
     if computer.uptime() < self.nextTime then return end
-    local ok, val = coroutine.resume(self.coro)
+    local ok, val = KOCOS.resume(self.coro)
     if ok then
         if type(val) == "number" then
             self.nextTime = computer.uptime() + val

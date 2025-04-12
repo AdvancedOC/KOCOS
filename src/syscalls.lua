@@ -477,7 +477,7 @@ end
 
 ---@param status integer
 function syscalls.pstatus(proc, status)
-    assert(type(status) == "number", "bad pid")
+    assert(type(status) == "number", "bad status")
     proc.status = status
 end
 
@@ -573,6 +573,16 @@ function syscalls.psignal(proc, pid, event, ...)
     end
 
     target.events.push(event, ...)
+end
+
+function syscalls.exit(proc, status)
+    syscalls.pstatus(proc, status)
+    while true do
+        local tid, thread = next(proc.threads)
+        if not thread then break end
+        thread:kill("exit")
+    end
+    KOCOS.yield() -- system yield moment
 end
 
 -- End of process syscalls

@@ -2,7 +2,7 @@ local KOCOS = _K
 
 -- Syscall definitions (no liblua :sad:)
 
-local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove
+local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -85,6 +85,12 @@ end
 
 function remove(path)
     local err = syscall("remove", path)
+    return err == nil, err
+end
+
+function exit(status)
+    -- WILL NEVER RETURN IF IT WORKED
+    local err = syscall("exit", status)
     return err == nil, err
 end
 
@@ -178,6 +184,10 @@ local function printf(f, ...)
     local s = string.format(f, ...)
     assert(write(stdout, s))
     assert(write(stdout, "\n"))
+end
+
+function cmds.exit(...)
+    exit(0)
 end
 
 function cmds.echo(...)

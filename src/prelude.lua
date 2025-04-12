@@ -163,3 +163,36 @@ if KOCOS.init then
         assert(KOCOS.process.spawn(KOCOS.init))
     end, 0)
 end
+
+local yield = coroutine.yield
+local resume = coroutine.resume
+
+function coroutine.yield(...)
+    return yield(false, ...)
+end
+
+function KOCOS.yield(...)
+    return yield(true, ...)
+end
+
+function coroutine.resume(co, ...)
+    while true do
+        local t = {resume(co, ...)}
+        if not t[1] then
+            return table.unpack(t)
+        end
+        if not t[2] then
+            return true, table.unpack(t, 3)
+        end
+        KOCOS.yield(table.unpack(t, 3))
+    end
+end
+
+function KOCOS.resume(co, ...)
+    local t = {resume(co, ...)}
+    if not t[1] then
+        return table.unpack(t)
+    end
+    -- Don't care if it IS sysyield or not
+    return true, table.unpack(t, 3)
+end

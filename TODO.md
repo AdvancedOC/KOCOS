@@ -7,20 +7,6 @@ Library that defines wrappers for all the syscalls.
 A new "domain" protocol with the "channel" subprotocol.
 These communicate via IPC, where the address is a key into a big table.
 
-# User/system yields
-
-User resumes should be overpowered by system yields, and system resumes should be the most powerful.
-It lets drivers yield in their synchronous interface without affecting green threads.
-It lets `exit` syscall work.
-
-# exit syscall
-
-Basic syscall to set an exit code and terminate all threads. Does not kill the process though.
-
-# prevent running after death
-
-When a thread kills its process, it continues to run until it yields. It should do a system yield.
-
 # tkill, tjoin, tsuspend and tresume syscalls
 
 A way to kill a thread, wait for it to finish, pause its execution or resume its execution.
