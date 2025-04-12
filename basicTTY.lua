@@ -692,8 +692,10 @@ local paramPattern = "[\x30-\x3F]+"
 
 function cmds.logKeys()
     local lib = unicode or string
+    print("Press enter to exit")
     write(stdout, "\x1b[5i") -- Enable aux port (keyboard)
-    while true do
+    local notExited = true
+    while notExited do
         local data, err = read(stdout, math.huge)
         if err then error(err) end
         for escape in string.gmatch(data, escapePattern) do
@@ -706,10 +708,12 @@ function cmds.logKeys()
                 printf("Pressed 0x%02x %s", n, lib.char(n))
             elseif term == "\\" then
                 printf("Pressed scancode 0x%02x", n)
+                if n == 0x1C then notExited = false break end
             end
         end
         coroutine.yield()
     end
+    write(stdout, "\x1b[4i") -- Keyboard be gone
 end
 
 ---@param a string
