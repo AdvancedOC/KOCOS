@@ -104,37 +104,69 @@ function KOCOS.bsod()
         local _, msg, time = KOCOS.event.pop("kpanic")
         table.insert(panics, string.format("%.2f %s", time, msg))
     end
+    local allPanicsText = "KERNEL CRASH\n" .. table.concat(panics, "\n") .. "\nPRESS ANY KEY TO REBOOT"
+    if KOCOS.rebootOnCrash then
+        allPanicsText = allPanicsText .. "\nSYSTEM WILL REBOOT AUTOMATICALLY"
+    end
     local gpu = component.gpu
     for _, screen in component.list("screen") do
         gpu.bind(screen)
         gpu.setForeground(0xFFFFFF)
-        gpu.setBackground(0x0000FF)
+        if gpu.getDepth() > 1 then
+            gpu.setBackground(0x0000FF)
+        else
+            gpu.setBackground(0x000000)
+        end
         gpu.setResolution(gpu.maxResolution())
         local w, h = gpu.getResolution()
 
         gpu.fill(1, 1, w, h, " ")
-        local start = math.max(1, #panics - h + 1)
-
-        for i=start,#panics do
-            gpu.set(1, i - start + 1, panics[i])
+        local i = 1
+        for line in allPanicsText:gmatch("[^\n]+") do
+            line = line:gsub("%\t", "    ")
+            gpu.set(1, i, line)
+            i = i + 1
+            if i > h then
+                i = h
+                gpu.copy(1, 2, w, h - 1, 0, -1)
+                gpu.fill(1, h, w, 1, " ")
+            end
         end
     end
     local start = computer.uptime()
-    while computer.uptime() - start < 5 do
-        coroutine.yield(start + 5 - computer.uptime())
+    if KOCOS.rebootOnCrash then
+        while computer.uptime() - start < 5 do
+            local event = computer.pullSignal(start + 5 - computer.uptime())
+            if event == "key_down" then break end
+        end
+        computer.shutdown(true)
+    else
+        repeat
+            local event = computer.pullSignal()
+        until event == "key_down"
     end
 end
 
 function KOCOS.loop()
     local lastPanicked = false
+    local function processEvents()
+        KOCOS.event.process(0.05)
+    end
+    local function runProcesses()
+        KOCOS.process.run()
+    end
+    local function reportCrash()
+        KOCOS.event.push("kcrash", computer.uptime())
+    end
     while true do
         local panicked = false
-        panicked = panicked or not KOCOS.pcall(KOCOS.event.process, 0.05)
+        panicked = panicked or not KOCOS.pcall(processEvents)
         panicked = panicked or not KOCOS.pcall(KOCOS.runLoopedFuncs)
-        panicked = panicked or not KOCOS.pcall(KOCOS.process.run)
+        panicked = panicked or not KOCOS.pcall(runProcesses)
         panicked = panicked or not KOCOS.pcall(KOCOS.runDeferred, 0.05)
         if lastPanicked and panicked then
-            assert(pcall(KOCOS.bsod))
+            pcall(reportCrash)
+            pcall(KOCOS.bsod) -- LETS HOPE IT DOES NOT
             if KOCOS.rebootOnCrash then
                 computer.shutdown(true)
             else

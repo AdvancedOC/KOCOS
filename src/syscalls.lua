@@ -698,6 +698,35 @@ end
 
 -- End of user syscalls
 
+-- Start of component syscalls
+
+function syscalls.clist(proc, all)
+    local filtered = {}
+    for addr in component.list() do
+        if (proc.ring <= component.ringFor(addr)) or all then
+            table.insert(filtered, addr)
+        end
+    end
+    return filtered
+end
+
+function syscalls.ctype(proc, addr)
+    return component.type(addr)
+end
+
+function syscalls.cproxy(proc, addr)
+    assert(component.type(addr), "missing component")
+    assert(proc.ring <= component.ringFor(addr), "permission denied")
+    return component.proxy(addr)
+end
+
+function syscalls.cinvoke(proc, addr, ...)
+    assert(proc.ring <= component.ringFor(addr), "permission denied")
+    return component.invoke(addr, ...)
+end
+
+-- End of component syscalls
+
 KOCOS.syscalls = syscalls
 
 KOCOS.log("Syscalls subsystem loaded")

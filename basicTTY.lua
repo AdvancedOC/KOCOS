@@ -3,6 +3,7 @@ local KOCOS = _K
 -- Syscall definitions (no liblua :sad:)
 
 local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit, listen, forget, mkpipe
+local clist, cproxy, cinvoke, ctype
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -107,6 +108,25 @@ end
 function mkpipe(input, output)
     local err, fd = syscall("mkpipe", input, output)
     return fd, err
+end
+
+function clist(all)
+    local err, l = syscall("clist", all)
+    return l, err
+end
+
+function cproxy(addr)
+    local err, p = syscall("cproxy", addr)
+    return p, err
+end
+
+function cinvoke(addr, ...)
+    return syscall("cinvoke", addr, ...)
+end
+
+function ctype(addr)
+    local err, t = syscall("ctype", addr)
+    return t, err
 end
 
 local logPid
@@ -632,6 +652,7 @@ function cmds.fetch(...)
     table.insert(data, "Shell: basicTTY")
     table.insert(data, "Boot: " .. info.boot:sub(1, 6) .. "...")
     table.insert(data, "Architecture: " .. info.arch)
+    table.insert(data, "Components: " .. #assert(clist(true)))
     table.insert(data, "Threads: " .. info.threadCount)
     table.insert(data, string.format("Battery: %.2f%%", info.energy / info.maxEnergy * 100))
     do
@@ -714,6 +735,351 @@ function cmds.logKeys()
         coroutine.yield()
     end
     write(stdout, "\x1b[4i") -- Keyboard be gone
+end
+
+function cmds.unreliable(...)
+    local args, opts = parse(...)
+    local odds = tonumber(args[1]) or 1
+    odds = odds / 100
+    local spread = tonumber(args[2]) or 15
+    spread = spread / 100
+    local visited = {}
+    local exempt = {
+        pcall = true,
+        assert = true,
+        bsod = true,
+    }
+    local function makeUnreliable(t)
+        if visited[t] then return end
+        visited[t] = true
+        for k, v in pairs(t) do
+            if type(v) == "function" and math.random() < spread and not exempt[k] then
+                t[k] = function(...)
+                    if math.random() < odds then
+                        error("unreliable")
+                    end
+                    return v(...)
+                end
+            elseif type(v) == "table" and k ~= "process" then
+                makeUnreliable(v)
+            end
+        end
+    end
+    -- Simulate extremely buggy kernel
+    makeUnreliable(_K)
+end
+
+function cmds.bsod()
+    _K.process = nil
+end
+
+do
+-- Taken from https://gist.github.com/kymckay/25758d37f8e3872e1636d90ad41fe2ed
+--[[
+    Implemented as described here:
+    http://flafla2.github.io/2014/08/09/perlinnoise.html
+]]--
+
+perlin = {}
+perlin.p = {}
+
+-- Hash lookup table as defined by Ken Perlin
+-- This is a randomly arranged array of all numbers from 0-255 inclusive
+local permutation = {151,160,137,91,90,15,
+  131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,
+  190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,
+  88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166,
+  77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,
+  102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208, 89,18,169,200,196,
+  135,130,116,188,159,86,164,100,109,198,173,186, 3,64,52,217,226,250,124,123,
+  5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,
+  223,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167, 43,172,9,
+  129,22,39,253, 19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,
+  251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,
+  49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,
+  138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180
+}
+
+-- p is used to hash unit cube coordinates to [0, 255]
+for i=0,255 do
+    -- Convert to 0 based index table
+    perlin.p[i] = permutation[i+1]
+    -- Repeat the array to avoid buffer overflow in hash function
+    perlin.p[i+256] = permutation[i+1]
+end
+
+-- Return range: [-1, 1]
+function perlin:noise(x, y, z)
+    y = y or 0
+    z = z or 0
+
+    -- Calculate the "unit cube" that the point asked will be located in
+    local xi = bit32.band(math.floor(x),255)
+    local yi = bit32.band(math.floor(y),255)
+    local zi = bit32.band(math.floor(z),255)
+
+    -- Next we calculate the location (from 0 to 1) in that cube
+    x = x - math.floor(x)
+    y = y - math.floor(y)
+    z = z - math.floor(z)
+
+    -- We also fade the location to smooth the result
+    local u = self.fade(x)
+    local v = self.fade(y)
+    local w = self.fade(z)
+
+    -- Hash all 8 unit cube coordinates surrounding input coordinate
+    local p = self.p
+    local A, AA, AB, AAA, ABA, AAB, ABB, B, BA, BB, BAA, BBA, BAB, BBB
+    A   = p[xi  ] + yi
+    AA  = p[A   ] + zi
+    AB  = p[A+1 ] + zi
+    AAA = p[ AA ]
+    ABA = p[ AB ]
+    AAB = p[ AA+1 ]
+    ABB = p[ AB+1 ]
+
+    B   = p[xi+1] + yi
+    BA  = p[B   ] + zi
+    BB  = p[B+1 ] + zi
+    BAA = p[ BA ]
+    BBA = p[ BB ]
+    BAB = p[ BA+1 ]
+    BBB = p[ BB+1 ]
+
+    -- Take the weighted average between all 8 unit cube coordinates
+    return self.lerp(w,
+        self.lerp(v,
+            self.lerp(u,
+                self:grad(AAA,x,y,z),
+                self:grad(BAA,x-1,y,z)
+            ),
+            self.lerp(u,
+                self:grad(ABA,x,y-1,z),
+                self:grad(BBA,x-1,y-1,z)
+            )
+        ),
+        self.lerp(v,
+            self.lerp(u,
+                self:grad(AAB,x,y,z-1), self:grad(BAB,x-1,y,z-1)
+            ),
+            self.lerp(u,
+                self:grad(ABB,x,y-1,z-1), self:grad(BBB,x-1,y-1,z-1)
+            )
+        )
+    )
+end
+
+-- Gradient function finds dot product between pseudorandom gradient vector
+-- and the vector from input coordinate to a unit cube vertex
+perlin.dot_product = {
+    [0x0]=function(x,y,z) return  x + y end,
+    [0x1]=function(x,y,z) return -x + y end,
+    [0x2]=function(x,y,z) return  x - y end,
+    [0x3]=function(x,y,z) return -x - y end,
+    [0x4]=function(x,y,z) return  x + z end,
+    [0x5]=function(x,y,z) return -x + z end,
+    [0x6]=function(x,y,z) return  x - z end,
+    [0x7]=function(x,y,z) return -x - z end,
+    [0x8]=function(x,y,z) return  y + z end,
+    [0x9]=function(x,y,z) return -y + z end,
+    [0xA]=function(x,y,z) return  y - z end,
+    [0xB]=function(x,y,z) return -y - z end,
+    [0xC]=function(x,y,z) return  y + x end,
+    [0xD]=function(x,y,z) return -y + z end,
+    [0xE]=function(x,y,z) return  y - x end,
+    [0xF]=function(x,y,z) return -y - z end
+}
+function perlin:grad(hash, x, y, z)
+    return self.dot_product[bit32.band(hash,0xF)](x,y,z)
+end
+
+-- Fade function is used to smooth final output
+function perlin.fade(t)
+    return t * t * t * (t * (t * 6 - 15) + 10)
+end
+
+function perlin.lerp(t, a, b)
+    return a + t * (b - a)
+end
+end
+
+function cmds.hologramTest(...)
+    local args, opts = parse(...)
+
+    local test = args[1] or "minecraft"
+    local scale = tonumber(args[2]) or 1
+
+    local l = assert(clist())
+    local hologramAddr
+    for _, addr in ipairs(l) do
+        if ctype(addr) == "hologram" then
+            hologramAddr = addr
+        end
+    end
+    assert(hologramAddr, "no hologram found")
+    local hologram = assert(cproxy(hologramAddr))
+
+    if test == "minecraft" then
+        local seed = os.time()
+        local brown = 1
+        local green = 2
+        local gray = 3
+
+        hologram.setTranslation(0, 0, 0)
+        hologram.setPaletteColor(brown, 0x523214)
+        hologram.setPaletteColor(green, 0x1e701e)
+        hologram.setPaletteColor(gray, 0x403e3a)
+        hologram.setScale(scale)
+        hologram.clear()
+        local w, top, h = hologram.getDimensions()
+        printf("Hologram Dimensions: %d x %d x %d", w, top, h)
+        local stoneHeight = 10
+        local dirtMin, dirtMax = 3, top - stoneHeight - 6
+
+        local function placeTree(x, y, z)
+            -- TODO: finish it
+            local bh = 3
+            hologram.fill(x, z, y, y + bh, brown)
+            for ox=-2,2 do
+                for oy=-2,2 do
+                    local th = 3
+                    local d = math.min(math.abs(ox), math.abs(oy))
+                    if d < 1 then th = th + 1 end
+                    hologram.fill(x + ox, z + oy, y + bh + 1, y + bh + th, green)
+                end
+            end
+        end
+
+        local noiseScale = 1
+        local posScale = 10
+
+        for x=1,w do
+            for z=1,h do
+                local noise = (perlin:noise(x/posScale, seed, z/posScale)/noiseScale+1)/2
+                local dirtHeight = math.floor(dirtMin + noise * (dirtMax - dirtMin))
+                hologram.fill(x, z, stoneHeight, gray)
+                hologram.fill(x, z, stoneHeight+1, stoneHeight+dirtHeight, brown)
+                hologram.set(x, stoneHeight+dirtHeight+1, z, green)
+                if math.random() < 0.0025 then
+                    placeTree(x, stoneHeight+dirtHeight+2, z)
+                end
+            end
+        end
+    elseif test == "automata" then
+        local w, h, d = hologram.getDimensions()
+        hologram.clear()
+        hologram.setTranslation(0, 0, 0)
+        hologram.setPaletteColor(1, 0x27698a)
+
+        local function cellIndex(x, y)
+            x = x - 1
+            y = y - 1
+            x = x % w
+            y = y % d
+            return x * d + y
+        end
+
+        local grid = {}
+        local counts = {}
+
+        local function getCell(x, y)
+            return grid[cellIndex(x, y)] or false
+        end
+
+        local function setCell(x, y, value)
+            grid[cellIndex(x, y)] = value
+        end
+
+        local function countNeighbours(x, y)
+            local c = 0
+            for ox=-1,1 do
+                for oy=-1,1 do
+                    if ox ~= 0 or oy ~= 0 then
+                        if getCell(x+ox, y+oy) then
+                            c = c + 1
+                        end
+                    end
+                end
+            end
+            return c
+        end
+
+        for x=4,w-4 do
+            for y=4,d-4 do
+                local v = math.random() < 0.5
+                setCell(x, y, v)
+                if v then hologram.set(x, 1, y, true) end
+            end
+        end
+
+        local duration = 10
+        local start = _OS.computer.uptime()
+        local finish = start + duration
+        while true do
+            if _OS.computer.uptime() >= finish then break end
+            for x=1,w do
+                for y=1,d do
+                    local ci = cellIndex(x, y)
+                    counts[ci] = countNeighbours(x, y)
+                end
+            end
+            for x=1,w do
+                for y=1,d do
+                    local ci = cellIndex(x, y)
+                    local current = getCell(x, y)
+                    local count = counts[ci]
+                    local nextState = current
+                    if current then
+                        if count < 2 or count > 3 then
+                            nextState = false
+                        end
+                    else
+                        if count == 3 then
+                            nextState = true
+                        end
+                    end
+                    setCell(x, y, nextState)
+                    if current ~= nextState then hologram.set(x, 1, y, nextState) end
+                end
+            end
+        end
+    elseif test == "solar" then
+        local w, h, d = hologram.getDimensions()
+        hologram.setPaletteColor(1, 0xe3da27)
+        hologram.setPaletteColor(2, 0x999993)
+        hologram.clear()
+        local function drawSphere(x, y, z, r, c)
+            for ox=-r,r do
+                for oy=-r,r do
+                    if ox^2 + oy^2 <= r^2 then
+                        local h = math.floor(math.sqrt(r^2 - ox ^ 2 - oy ^ 2))
+                        hologram.fill(x + ox, z + oy, y - h, y + h, c)
+                    end
+                end
+            end
+        end
+        drawSphere(w/2,h/2,d/2,6,1)
+        local duration = 20
+        local start = _OS.computer.uptime()
+        local finish = start + duration
+        local dist = 13
+        local angle = 0
+        while true do
+            if _OS.computer.uptime() >= finish then break end
+            local cx, cy, cz = w/2,h/2,d/2
+            local ox,oz = math.cos(angle)*dist, math.sin(angle)*dist
+            local r = 3
+            drawSphere(cx+ox, cy, cz+oz, r, false)
+            angle = angle + 0.2
+
+            ox,oz = math.cos(angle)*dist, math.sin(angle)*dist
+            drawSphere(cx+ox, cy, cz+oz, r, 2)
+            coroutine.yield(0.1)
+        end
+    elseif test == "clear" then
+        hologram.clear()
+    end
 end
 
 ---@param a string
