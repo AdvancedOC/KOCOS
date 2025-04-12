@@ -2,7 +2,7 @@ local KOCOS = _K
 
 -- Syscall definitions (no liblua :sad:)
 
-local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit, listen, forget
+local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit, listen, forget, mkpipe
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -104,6 +104,11 @@ function forget(id)
     return err == nil, err
 end
 
+function mkpipe(input, output)
+    local err, fd = syscall("mkpipe", input, output)
+    return fd, err
+end
+
 local logPid
 
 do
@@ -127,7 +132,9 @@ local tty = _K.tty.create(_OS.component.gpu, _OS.component.screen)
 
 tty:clear()
 
-local stdout = assert(mopen("w", "", math.huge))
+local programOut = assert(mopen("w", "", math.huge))
+local programIn = assert(mopen("w", "", math.huge))
+local stdout = assert(mkpipe(programIn, programOut))
 local stdin = assert(mopen("w", "", math.huge))
 
 local commandStdinBuffer = ""
@@ -665,7 +672,44 @@ function cmds.fetch(...)
 end
 
 function cmds.clear()
-    write(0, "\x1b[2J")
+    write(stdout, "\x1b[2J")
+end
+
+local function parseTerm16(s)
+    local t = {
+        [":"] = "A",
+        [";"] = "B",
+        ["<"] = "C",
+        ["="] = "D",
+        [">"] = "E",
+        ["?"] = "F",
+    }
+    return tonumber(string.gsub(s, ".", t), 16)
+end
+
+local escapePattern = "\x1b%[[\x30-\x3F]*[\x20-\x2F]*[\x40-\x7E]"
+local paramPattern = "[\x30-\x3F]+"
+
+function cmds.logKeys()
+    local lib = unicode or string
+    write(stdout, "\x1b[5i") -- Enable aux port (keyboard)
+    while true do
+        local data, err = read(stdout, math.huge)
+        if err then error(err) end
+        for escape in string.gmatch(data, escapePattern) do
+            local term = escape:sub(-1, -1)
+            local param = string.match(escape, paramPattern)
+            local n = parseTerm16(param)
+            local mod = n % 16
+            n = math.floor(n / 16)
+            if term == "|" then
+                printf("Pressed 0x%02x %s", n, lib.char(n))
+            elseif term == "\\" then
+                printf("Pressed scancode 0x%02x", n)
+            end
+        end
+        coroutine.yield()
+    end
 end
 
 ---@param a string
@@ -693,7 +737,7 @@ end
 
 local function myBeloved()
     while true do
-        write(stdout, "\x1b[34m> \x1b[0m")
+        write(stdout, "\x1b[0m\x1b[34m> \x1b[0m")
         local line = readLine()
 
         -- Basic program that traverses filesystem
@@ -735,15 +779,27 @@ local function isEscape(char)
     return char < 0x20 or (char >= 0x7F and char <= 0x9F)
 end
 
+_K.event.listen(function(event, _, char, code)
+    if event == "key_down" then
+        tty:handleChar(char, code)
+    end
+end)
+
 local inputBuffer
 while true do
-    if queued(stdout, "write") then
-        local data, err = read(stdout, math.huge)
+    if queued(programOut, "write") then
+        local data, err = read(programOut, math.huge)
         if err then tty:write(err) end
-        clear(stdout)
+        clear(programOut)
         assert(data, "no data")
         tty:write(data)
         coroutine.yield()
+    end
+
+    while true do
+        local response = tty:popResponse()
+        if not response then break end
+        assert(write(programIn, response))
     end
 
     if queued(stdin, "read") and not inputBuffer then
@@ -751,7 +807,11 @@ while true do
         inputBuffer = ""
     end
 
-    if inputBuffer then
+    if tty.auxPort then
+        _K.event.pop("key_down")
+    end
+
+    if inputBuffer and not tty.auxPort then
         local ok, _, char, code = _K.event.pop("key_down")
         if ok then
             local lib = unicode or string

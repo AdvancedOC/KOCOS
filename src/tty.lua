@@ -138,6 +138,40 @@ function tty:doGraphicalAction(args)
     end
 end
 
+---@param num integer
+---@return string
+local function paramBase16(num)
+    local base = "0123456789:;<=>?"
+    local s = ""
+    while num > 0 do
+        local n = num % #base
+        num = math.floor(num / #base)
+        s = s .. base:sub(n+1,n+1)
+    end
+    if s == "" then return "0" end
+    return s:reverse()
+end
+
+local function isControlCharacter(char)
+	return type(char) == "number" and (char < 0x20 or (char >= 0x7F and char <= 0x9F))
+end
+
+function tty:handleChar(char, code)
+    -- Keyboard disabled
+    if not self.auxPort then return end
+    -- KOCOS custom escape sequences cuz yeah
+    local mods = 0
+    local num = char
+    local term = "|"
+    if isControlCharacter(char) then
+        -- Send as code
+        num = code
+        term = "\\"
+    end
+    local s = "\x1b[" .. paramBase16(num * 16 + mods) .. term
+    table.insert(self.responses, s)
+end
+
 -- https://en.wikipedia.org/wiki/ANSI_escape_code
 ---@param c string
 function tty:processEscape(c)
@@ -214,9 +248,17 @@ function tty:processEscape(c)
         end
 
         if action == "n" then
+            -- standard
             if params == "6" then
                 -- CSI 6n asks for a status report
                 table.insert(self.responses, "\x1b[" .. tostring(self.x) .. ";" .. tostring(self.y) .. "R")
+            end
+            -- non-standard
+            if params == "5" then
+                table.insert(self.responses, "\x1b[" .. tostring(self.w) .. ";" .. tostring(self.h) .. "R")
+            end
+            if params == "7" then
+                table.insert(self.responses, "\x1b[" .. tostring(self.gpu.address) .. ";" .. tostring(self.gpu.getScreen()) .. "R")
             end
         end
     elseif start == ']' then
@@ -281,8 +323,17 @@ function tty:put(c)
     elseif c == "\t" then
         self:flush()
         self.x = self.x + 4
-    elseif c == "\b" then
+        self.x = math.floor(self.x / 4) * 4
+    elseif c:byte() == 0x07 then
+        self:flush()
         computer.beep() -- Bell beeps.
+    elseif c:byte() == 0x08 then
+        self:flush()
+        self.x = self.x - 1
+        if self.x == 0 then self.x = 1 end
+    elseif c == "\r" then
+        self:flush()
+        self.x = 1
     elseif c == "\f" then
         self:flush()
         -- There is no next printer page, so we just move to top of screen

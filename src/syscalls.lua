@@ -96,6 +96,36 @@ function syscalls.mopen(proc, mode, contents, limit)
     error(fd)
 end
 
+---@param inFd integer
+---@param outFd integer
+function syscalls.mkpipe(proc, inFd, outFd)
+    assert(type(inFd) == "number", "bad input fd")
+    assert(type(outFd) == "number", "bad output fd")
+
+    local inRes = assert(proc.resources[inFd], "bad input fd")
+    assert(inRes.kind == "file", "bad input fd")
+    ---@cast inRes KOCOS.FileResource
+    local outRes = assert(proc.resources[outFd], "bad output fd")
+    assert(outRes.kind == "file", "bad output fd")
+    ---@cast outRes KOCOS.FileResource
+
+    local f = assert(KOCOS.fs.mkpipe(inRes.file, outRes.file))
+
+    ---@type KOCOS.FileResource
+    local res = {
+        kind = "file",
+        file = f,
+    }
+
+    local ok, fd = pcall(KOCOS.process.moveResource, proc, res)
+    if ok then
+        return fd
+    end
+
+    KOCOS.fs.close(f)
+    error(fd)
+end
+
 ---@param protocol string
 ---@param subprotocol string
 function syscalls.socket(proc, protocol, subprotocol, config)
