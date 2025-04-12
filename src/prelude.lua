@@ -160,7 +160,9 @@ end
 if KOCOS.init then
     KOCOS.defer(function()
         KOCOS.log("Running " .. KOCOS.init)
-        assert(KOCOS.process.spawn(KOCOS.init))
+        assert(KOCOS.process.spawn(KOCOS.init, {
+            traced = true,
+        }))
     end, 0)
 end
 

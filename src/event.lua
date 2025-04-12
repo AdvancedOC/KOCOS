@@ -65,12 +65,9 @@ event = function(maximum)
     end
 
     function system.listen(callback, id)
-        id = tostring(callback)
+        id = id or tostring(callback)
         while callbacks[id] do id = "_" .. id end
         callbacks[id] = callback
-        for i=1,#buffer do
-            callback(table.unpack(buffer))
-        end
         return id
     end
 

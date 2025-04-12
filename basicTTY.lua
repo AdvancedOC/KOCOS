@@ -2,7 +2,7 @@ local KOCOS = _K
 
 -- Syscall definitions (no liblua :sad:)
 
-local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit
+local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit, listen, forget
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -91,6 +91,16 @@ end
 function exit(status)
     -- WILL NEVER RETURN IF IT WORKED
     local err = syscall("exit", status)
+    return err == nil, err
+end
+
+function listen(f, id)
+    local err, eid = syscall("listen", f, id)
+    return eid, err
+end
+
+function forget(id)
+    local err = syscall("forget", id)
     return err == nil, err
 end
 
@@ -188,6 +198,62 @@ end
 
 function cmds.exit(...)
     exit(0)
+end
+
+local sysret = false
+local sysignore = false
+
+local function sysprint(name, sysfunc, a, r)
+    if (name == "sysret") and (not sysret) then
+        if sysignore then
+            sysignore = false
+            return
+        end
+        sysret = true
+        a = table.copy(a)
+        for i=1,#a do
+            local ok, fmt = pcall(string.format, "%q", a[i])
+            if ok then
+                a[i] = fmt
+            else
+                a[i] = tostring(a[i])
+            end
+        end
+        r = table.copy(r)
+        local rlen = 1
+        for i in pairs(r) do
+            rlen = math.max(rlen, i)
+            local ok, fmt = pcall(string.format, "%q", r[i])
+            if ok then
+                r[i] = type(fmt) == "string" and fmt or tostring(fmt)
+            else
+                r[i] = tostring(r[i])
+            end
+        end
+        for i=1,rlen do
+            if not r[i] then r[i] = "nil" end
+        end
+        local args = table.concat(a, ", ")
+        local ret = table.concat(r, ", ")
+        local s = string.format("%s(%s) = %s", sysfunc, args, ret)
+        print(s)
+        sysret = false
+    end
+end
+
+listen(function(name, ...)
+    if name == "event_err" then
+        KOCOS.logAll(name, ...)
+    end
+end)
+
+function cmds.strace(rawArgs)
+    local c = cmds[rawArgs[1]]
+    if not c then error("bad command") end
+    sysignore = true
+    local tracer = assert(listen(sysprint))
+    c({table.unpack(rawArgs, 2)})
+    assert(forget(tracer))
 end
 
 function cmds.echo(...)
@@ -555,6 +621,8 @@ function cmds.fetch(...)
     local memUsed = info.memTotal - info.memFree
     table.insert(data, string.format("Memory: %s / %s (%.2f%%)", string.memformat(memUsed), string.memformat(info.memTotal), memUsed / info.memTotal * 100))
     table.insert(data, string.format("Uptime: %s:%s:%s.%s", hours, mins, secs, ms))
+    table.insert(data, "Terminal: basicTTY")
+    table.insert(data, "Shell: basicTTY")
     table.insert(data, "Boot: " .. info.boot:sub(1, 6) .. "...")
     table.insert(data, "Architecture: " .. info.arch)
     table.insert(data, "Threads: " .. info.threadCount)
@@ -572,6 +640,13 @@ function cmds.fetch(...)
         local mountInfo = assert(stat("/" .. mountpoint))
         if mountInfo.total > 0 then
             table.insert(data, string.format("Disk (%s): %s / %s (%.2f%%)", "/" .. mountpoint, mountInfo.used, mountInfo.total, mountInfo.used / mountInfo.total * 100))
+        end
+    end
+
+    if #data > #asciiLines then
+        local toPrepend = math.floor((#data - #asciiLines) / 2)
+        for i=1,toPrepend do
+            table.insert(asciiLines, 1, "")
         end
     end
 

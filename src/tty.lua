@@ -279,6 +279,7 @@ function tty:put(c)
         self.y = self.y + 1
         self.x = 1
     elseif c == "\t" then
+        self:flush()
         self.x = self.x + 4
     elseif c == "\b" then
         computer.beep() -- Bell beeps.

@@ -7,14 +7,9 @@ Library that defines wrappers for all the syscalls.
 A new "domain" protocol with the "channel" subprotocol.
 These communicate via IPC, where the address is a key into a big table.
 
-# tkill, tjoin, tsuspend and tresume syscalls
+# tkill, tjoin, tstatus, tsuspend and tresume syscalls
 
 A way to kill a thread, wait for it to finish, pause its execution or resume its execution.
-
-# trace option when spawning processes
-
-If set to `true`, parent will receive interrupts for each syscall and sysret.
-This lets programs like `strace` exist.
 
 # Radio System
 > KOCOS.radio

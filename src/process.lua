@@ -155,6 +155,7 @@ KOCOS.thread = thread
 ---@field children {[integer]: KOCOS.Process}
 ---@field modules {[string]: string}
 ---@field resources {[integer]: KOCOS.Resource}
+---@field traced boolean
 local process = {}
 process.__index = process
 
@@ -194,7 +195,9 @@ local function rawSpawn(init, config)
     local uid = config.uid or 0
     local pid = process.lpid + 1
 
+    ---@type KOCOS.Process
     local proc = setmetatable({}, process)
+    proc.traced = not not config.traced
 
     local namespace = {}
 
@@ -205,7 +208,7 @@ local function rawSpawn(init, config)
             yield = coroutine.yield,
         }
     end
-    namespace.syscall = function(name, ...)
+    local syscall = function(name, ...)
         local sys = KOCOS.syscalls[name]
         if not sys then return "bad syscall" end
         local t = {xpcall(sys, KOCOS.syscallTraceback and debug.traceback or trimLoc, proc, ...)}
@@ -214,6 +217,21 @@ local function rawSpawn(init, config)
         else
             return t[2]
         end
+    end
+    -- Small optimization to do it like this
+    if proc.traced then
+        function namespace.syscall(name, ...)
+            local tracer = process.procs[proc.parent or proc.pid]
+            -- Should never happen though
+            if not tracer then return syscall(name, ...) end
+            local a = {...}
+            tracer:raise("syscall", name, a)
+            local r = {syscall(name, ...)}
+            tracer:raise("sysret", name, a, r)
+            return table.unpack(r)
+        end
+    else
+        namespace.syscall = syscall
     end
     if ring <= 1 then
         namespace._K = KOCOS
@@ -268,7 +286,7 @@ local function rawSpawn(init, config)
     proc.threads = {}
     proc.modules = {}
     proc.resources = {}
-    proc.uid = 0
+    proc.uid = uid
 
     if type(init) == "function" then
         proc:attach(init)
@@ -440,7 +458,9 @@ process.addLoader({
         return fun ~= nil, fun
     end,
     load = function (proc, data)
-        proc:attach(data, "main")
+        proc:attach(function()
+            return data(table.unpack(proc.args))
+        end, "main")
     end,
 })
 

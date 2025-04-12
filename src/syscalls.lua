@@ -345,11 +345,9 @@ function syscalls.push(proc, fd, name, ...)
     return events.push(name, ...)
 end
 
----@param name string
 ---@param f function
 ---@param id? string
-function syscalls.listen(proc, name, f, id)
-    assert(type(name) == "string", "bad event name")
+function syscalls.listen(proc, f, id)
     assert(type(f) == "function", "bad callback")
     assert(type(id) == "string" or id == nil, "bad id")
     return proc.events.listen(f, id)
@@ -502,6 +500,7 @@ function syscalls.pspawn(proc, init, config)
         cmdline = config.cmdline or init,
         args = table.copy(config.args) or {[0]=init},
         env = table.copy(config.env or proc.env),
+        traced = not not config.traced,
         -- User ID changes can only happen with a login()
         uid = proc.uid,
         parent = proc.pid,
