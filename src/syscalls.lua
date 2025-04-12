@@ -140,6 +140,34 @@ function syscalls.connect(proc, fd, address, options)
 end
 
 ---@param fd integer
+---@param options any
+function syscalls.serve(proc, fd, options)
+    local res = assert(proc.resources[fd], "bad file descriptor")
+    assert(res.kind == "socket", "bad file descriptor")
+    ---@cast res KOCOS.SocketResource
+    KOCOS.network.listen(res.socket, options)
+end
+
+---@param fd integer
+function syscalls.accept(proc, fd)
+    local res = assert(proc.resources[fd], "bad file descriptor")
+    assert(res.kind == "socket", "bad file descriptor")
+    ---@cast res KOCOS.SocketResource
+    local client = KOCOS.network.accept(res.socket)
+
+    local clientRes = {
+        kind = "socket",
+        socket = client,
+        rc = 1,
+    }
+
+    local ok, cfd = pcall(KOCOS.process.moveResource, proc, clientRes)
+    if ok then return cfd end
+    KOCOS.network.close(client)
+    error(cfd)
+end
+
+---@param fd integer
 function syscalls.close(proc, fd)
     local res = proc.resources[fd]
     assert(res, "bad file descriptor")

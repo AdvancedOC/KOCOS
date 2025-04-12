@@ -31,10 +31,6 @@ function internet.create(protocol, subprotocol, options, process)
     return manager
 end
 
-function internet:listen(socket, options)
-    error("unsupported")
-end
-
 function internet:connect(socket, address, options)
     assert(type(address) == "string", "bad address")
     options = options or {}
@@ -85,6 +81,16 @@ function internet:async_write()
 end
 
 function internet:async_read()
+    error("unsupported")
+end
+
+-- No way to run an internet server
+
+function internet:accept()
+    error("unsupported")
+end
+
+function internet:listen(socket, options)
     error("unsupported")
 end
 

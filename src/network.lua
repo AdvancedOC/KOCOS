@@ -6,6 +6,8 @@ network.resolvers = {}
 network.EVENT_READ_RESPONSE = "packet"
 network.EVENT_WRITE_RESPONSE = "response"
 network.EVENT_CONNECT_RESPONSE = "connect"
+network.EVENT_CONNECT_REQUEST = "pending_connect"
+network.EVENT_CLOSE_RESPONSE = "closed"
 
 function network.addDriver(driver)
     table.insert(network.drivers, driver)
@@ -90,6 +92,15 @@ function network.async_connect(socket, address, options)
         error("bad state")
     end
     return socket.manager:async_connect(socket, address, options)
+end
+
+---@param socket KOCOS.NetworkSocket
+---@return KOCOS.NetworkSocket -- The client
+function network.accept(socket)
+    if socket.state ~= "listening" then
+        error("bad state")
+    end
+    return socket.manager:accept(socket)
 end
 
 ---@param socket KOCOS.NetworkSocket
