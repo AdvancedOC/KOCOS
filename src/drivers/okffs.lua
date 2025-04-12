@@ -41,7 +41,7 @@ struct okffs_header {
 
 ---@class KOCOS.OKFFS.Handle
 ---@field state KOCOS.OKFFS.FileState
----@field mode "w"|"r"
+---@field mode "w"|"r"|"a"
 ---@field pos integer
 -- Used to determine if cached stuff is valid
 ---@field syncedWith integer
@@ -891,11 +891,20 @@ function okffs:readFileBlockList(curBlock, curOff, count)
     return data
 end
 
+function okffs:overwriteBlockList(curBlock, off, data)
+    error("unimplemented")
+    local dataPerSector = self.sectorSize - 5
+    while #data > 0 do
+    end
+    self:saveState()
+end
+
 ---@param fd integer
 ---@param data string
 function okffs:write(fd, data)
     local handle = self.handles[fd]
     if not handle then return false, "bad file descriptor" end
+    if handle.mode == "r" then return false, "bad file descriptor" end
     if computer.freeMemory() < self:recommendedMemoryFor(#data) then
         -- inconvenient OOMs may lead to corrupted data
         return false, "dangerously low ram"
@@ -914,7 +923,7 @@ function okffs:write(fd, data)
     end
     -- we gonna modify it
     local curBlock, curOff = self:getSeekBlockAndOffset(handle)
-    do
+    if handle.mode == "a" then
         local len = self:readUintN(curBlock, 3, 2)
         if curOff < len then
             -- when they're equal, we insert right after
@@ -925,6 +934,10 @@ function okffs:write(fd, data)
         end
         self:appendToBlockList(curBlock, data)
         handle.state.entry.fileSize = handle.state.entry.fileSize + #data
+        self:saveDirectoryEntry(handle.state.entry)
+    elseif handle.mode == "w" then
+        self:overwriteBlockList(curBlock, curOff, data)
+        handle.state.entry.fileSize = math.max(handle.state.entry.fileSize, handle.pos + #data)
         self:saveDirectoryEntry(handle.state.entry)
     end
     handle.pos = handle.pos + #data
@@ -1061,7 +1074,7 @@ KOCOS.test("OKFFS driver", function()
     assert(manager:remove("spam"))
     assert(manager:spaceUsed() == spaceUsed, "space is getting leaked (" .. (spaceUsed - manager:spaceUsed()) .. " blocks)")
 
-    local test = assert(manager:open("test", "w"))
+    local test = assert(manager:open("test", "a"))
     assert(manager:seek(test, "cur", 0) == 0, "bad initial position")
 
     local smallData = "Hello, world!"

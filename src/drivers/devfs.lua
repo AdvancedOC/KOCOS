@@ -26,6 +26,10 @@ function devfs.create(partition)
     }, devfs)
 end
 
+function devfs.format()
+    return false
+end
+
 function devfs:addProxy(proxy)
     local fd = 0
     while self.handles[fd] do fd = fd + 1 end
