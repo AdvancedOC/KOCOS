@@ -121,6 +121,14 @@ function syscalls.socket(proc, protocol, subprotocol, config)
     error(fd)
 end
 
+---@param address string
+---@param protocol? string
+function syscalls.getaddrinfo(proc, address, protocol)
+    assert(type(address) == "string", "bad address")
+    assert(type(protocol) == "string" or type(protocol) == "nil", "bad protocol")
+    return KOCOS.network.getAddressInfo(address, protocol)
+end
+
 ---@param fd integer
 ---@param address any
 ---@param options any

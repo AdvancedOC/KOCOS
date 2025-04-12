@@ -1,6 +1,7 @@
 local network = {}
 
 network.drivers = {}
+network.resolvers = {}
 
 network.EVENT_READ_RESPONSE = "packet"
 network.EVENT_WRITE_RESPONSE = "response"
@@ -8,6 +9,24 @@ network.EVENT_CONNECT_RESPONSE = "connect"
 
 function network.addDriver(driver)
     table.insert(network.drivers, driver)
+end
+
+function network.addResolver(resolver)
+    table.insert(network.resolvers, resolver)
+end
+
+---@class KOCOS.NetworkAddressInfo
+---@field address string
+---@field port? number
+
+---@param address string
+---@param protocol? string
+---@return KOCOS.NetworkAddressInfo?
+function network.getAddressInfo(address, protocol)
+    for i=#network.resolvers,1,-1 do
+        local addrinfo = network.resolvers[i](address, protocol)
+        if addrinfo then return addrinfo end
+    end
 end
 
 ---@class KOCOS.NetworkSocket
