@@ -21,6 +21,7 @@ local servers = {}
 ---@field id integer
 ---@field server string
 local domain = {}
+domain.__index = domain
 
 ---@return KOCOS.Domain.Driver
 function domain.blank()
@@ -65,6 +66,7 @@ end
 function domain:async_connect(socket, address, options)
     local server = servers[address]
     assert(server, "no domain server")
+    self.server = address
     table.insert(server.pending, {
         id = 0,
         serverEvents = KOCOS.event.create(KOCOS.maxEventBacklog),
@@ -83,12 +85,15 @@ end
 ---@param address any
 ---@param options any
 function domain:connect(socket, address, options)
-    self:async_connect(socket, address, options)
+    if not socket.events.queued(KOCOS.network.EVENT_CONNECT_RESPONSE) then
+        self:async_connect(socket, address, options)
+    end
     while true do
         local e, id, ok, err = socket.events.pop(KOCOS.network.EVENT_CONNECT_RESPONSE)
         if e == KOCOS.network.EVENT_CONNECT_RESPONSE then
             assert(ok, err)
             self.id = id
+            self.kind = "client"
             return
         end
         KOCOS.yield()
@@ -109,6 +114,7 @@ function domain:accept(socket)
             local dom = domain.blank()
             dom.kind = "serverConnection"
             dom.id = id
+            dom.server = self.server
             c.id = id
             server.connections[id] = c
             ---@type KOCOS.NetworkSocket
@@ -148,6 +154,7 @@ function domain:async_write(socket, data)
         conn.clientEvents.push(KOCOS.network.EVENT_READ_RESPONSE, "", data)
     end
     socket.events.push(KOCOS.network.EVENT_WRITE_RESPONSE, "", true)
+    KOCOS.yield()
     return ""
 end
 
@@ -169,6 +176,9 @@ end
 ---@param len integer
 function domain:read(socket, len)
     while true do
+        if socket.events.queued(KOCOS.network.EVENT_CLOSE_RESPONSE) then
+            return nil
+        end
         local e, _, data, err = socket.events.pop(KOCOS.network.EVENT_READ_RESPONSE)
         if e == KOCOS.network.EVENT_READ_RESPONSE then
             if err then error(err) end

@@ -170,6 +170,16 @@ function syscalls.connect(proc, fd, address, options)
 end
 
 ---@param fd integer
+---@param address any
+---@param options any
+function syscalls.aio_connect(proc, fd, address, options)
+    local res = assert(proc.resources[fd], "bad file descriptor")
+    assert(res.kind == "socket", "bad file descriptor")
+    ---@cast res KOCOS.SocketResource
+    return KOCOS.network.async_connect(res.socket, address, options)
+end
+
+---@param fd integer
 ---@param options any
 function syscalls.serve(proc, fd, options)
     local res = assert(proc.resources[fd], "bad file descriptor")
@@ -222,9 +232,7 @@ function syscalls.read(proc, fd, limit)
     elseif res.kind == "socket" then
         ---@cast res KOCOS.SocketResource
         local s = res.socket
-        local data, err = KOCOS.network.read(s, limit)
-        if err then error(err) end
-        return data
+        return KOCOS.network.read(s, limit)
     end
     error("bad resource type")
 end
@@ -241,6 +249,38 @@ function syscalls.write(proc, fd, data)
         local f = res.file
         assert(KOCOS.fs.write(f, data))
         return
+    elseif res.kind == "socket" then
+        ---@cast res KOCOS.SocketResource
+        return KOCOS.network.write(res.socket, data)
+    end
+    error("bad resource type")
+end
+
+---@param fd integer
+---@param limit integer
+function syscalls.aio_read(proc, fd, limit)
+    assert(type(limit) == "number", "bad limit")
+    local res = proc.resources[fd]
+    assert(res, "bad file descriptor")
+
+    if res.kind == "socket" then
+        ---@cast res KOCOS.SocketResource
+        local s = res.socket
+        return KOCOS.network.async_read(s, limit)
+    end
+    error("bad resource type")
+end
+
+---@param fd integer
+---@param data string 
+function syscalls.aio_write(proc, fd, data)
+    assert(type(data) == "string", "bad data")
+    local res = proc.resources[fd]
+    assert(res, "bad file descriptor")
+
+    if res.kind == "socket" then
+        ---@cast res KOCOS.SocketResource
+        return KOCOS.network.async_write(res.socket, data)
     end
     error("bad resource type")
 end
@@ -422,6 +462,8 @@ end
 -- Thread syscalls
 
 function syscalls.attach(proc, func, name)
+    assert(type(func) == "function", "bad function")
+    assert(type(name) == "string" or type(name) == "nil", "bad name")
     local thread = proc:attach(func, name)
     assert(thread, "failed")
     return thread.id
@@ -748,6 +790,16 @@ end
 
 function syscalls.ctype(proc, addr)
     return component.type(addr)
+end
+
+function syscalls.cprimary(proc, kind, exact)
+    local filtered = {}
+    for addr in component.list(kind, exact) do
+        if (proc.ring <= component.ringFor(addr)) or all then
+            table.insert(filtered, addr)
+        end
+    end
+    return filtered[1]
 end
 
 function syscalls.cproxy(proc, addr)

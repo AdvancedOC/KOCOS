@@ -3,7 +3,8 @@ local KOCOS = _K
 -- Syscall definitions (no liblua :sad:)
 
 local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit, listen, forget, mkpipe
-local clist, cproxy, cinvoke, ctype
+local clist, cproxy, cinvoke, ctype, attach
+local socket, serve, accept, connect
 
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
@@ -27,7 +28,7 @@ end
 
 function close(fd)
     local err = syscall("close", fd)
-    return err ~= nil, err
+    return err == nil, err
 end
 
 function write(fd, data)
@@ -127,6 +128,31 @@ end
 function ctype(addr)
     local err, t = syscall("ctype", addr)
     return t, err
+end
+
+function attach(func, name)
+    local err, tid = syscall("attach", func, name)
+    return tid, err
+end
+
+function socket(protocol, subdomain)
+    local err, fd = syscall("socket", protocol, subdomain)
+    return fd, err
+end
+
+function connect(fd, address, options)
+    local err = syscall("connect", fd, address, options)
+    return err == nil, err
+end
+
+function serve(fd, options)
+    local err = syscall("serve", fd, options)
+    return err == nil, err
+end
+
+function accept(fd)
+    local err, clientfd = syscall("accept", fd)
+    return clientfd, err
 end
 
 local logPid
@@ -1082,6 +1108,109 @@ function cmds.hologramTest(...)
     end
 end
 
+local function hex(bin)
+    local hexStr = "0123456789ABCDEF"
+    local s=""
+    for i=1,#bin do
+        local b = bin:byte(i, i)
+        local h = math.floor(b/16)
+        local l = b%16
+
+        s = s .. hexStr:sub(h+1,h+1) .. hexStr:sub(l+1,l+1)
+    end
+    return s
+end
+
+local function readFile(path)
+    local f = assert(open(path, "r"))
+    local data = ""
+    while true do
+        local chunk, err = read(f, math.huge)
+        if err then assert(close(f)) error(err) end
+        if not chunk then break end
+        data = data .. chunk
+    end
+    assert(close(f))
+    return data
+end
+
+local function writeToFile(path, data)
+    if ftype(path) == "missing" then
+        assert(touch(path, 2^16-1))
+    end
+    local f = assert(open(path, "w"))
+    assert(write(f, data))
+    assert(close(f))
+end
+
+function cmds.data(args)
+    local _, dataAddr = syscall("cprimary", "data")
+    assert(dataAddr, "no data card found")
+    local data = assert(cproxy(dataAddr))
+    if args[1] == "limit" then
+        print(string.memformat(data.getLimit()))
+    elseif args[1] == "crc32" then
+        print(hex(data.crc32(readFile(args[2]))))
+    elseif args[1] == "md5" then
+        print(hex(data.md5(readFile(args[2]))))
+    elseif args[1] == "sha256" then
+        print(hex(data.sha256(readFile(args[2]))))
+    elseif args[1] == "deflate" then
+        local fdata = readFile(args[2])
+        local deflated = data.deflate(fdata)
+        writeToFile(args[3], deflated)
+    elseif args[1] == "inflate" then
+        local fdata = readFile(args[2])
+        local inflated = data.inflate(fdata)
+        writeToFile(args[3], inflated)
+    else
+        print("Unknown operation: " .. args[1])
+    end
+end
+
+local function logger()
+    local s = assert(socket("domain", "channel"))
+    assert(serve(s, {port = "log_server"}))
+    while true do
+        -- This is btw HORRIBLY bad
+        -- Because if the client errors out
+        -- Since its from our process
+        -- And the sockets get leaked
+        -- The server hangs
+        -- Whoopsies
+        local c = assert(accept(s))
+        KOCOS.log("[LOGGER] Client connected")
+        while true do
+            local msg, err = read(c, math.huge)
+            if err then KOCOS.log("Client error: %s", err) break end
+            if not msg then break end
+            KOCOS.log("[LOGGER] From client: %s", msg)
+            assert(write(c, msg))
+            coroutine.yield()
+        end
+        assert(close(c))
+        coroutine.yield()
+    end
+end
+
+function cmds.logger()
+    assert(attach(logger, "logger"))
+    print("Logger started")
+end
+
+function cmds.log(args)
+    local msg = table.concat(args, " ")
+    local s = assert(socket("domain", "channel"))
+    assert(connect(s, "log_server"))
+    print("Connected")
+    assert(write(s, msg))
+    print("Sent")
+    assert(msg == assert(read(s, math.huge)), "bad response") -- block until they write back
+    print("Confirmation received")
+    assert(close(s))
+    print("Closed")
+end
+
 ---@param a string
 ---@param b string
 ---@return number
@@ -1143,7 +1272,7 @@ local function myBeloved()
     end
 end
 
-syscall("attach", myBeloved, "command")
+attach(myBeloved, "command")
 
 local function isEscape(char)
     return char < 0x20 or (char >= 0x7F and char <= 0x9F)
