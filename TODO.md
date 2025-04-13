@@ -71,6 +71,8 @@ It has its own "vm" resource, with its own event system.
 
 A `kvmopen` syscall is used to open a new blank virtual machine.
 `kvmresume` can be used to run it until it yields. Pulling signals always yields.
+It will return if the machine *is still running*. If false, a 2nd return is made.
+A string if it crashed due to an error, a boolean if it shutdown, indicating whether it wishes to restart.
 `kvmadd` can be used to add a virtual component by proxy, more on that later.
 Can be told to raise a `component_added` event.
 `kvmaddGPU` can be used to add a virtual GPU that can be bound to a screen and forwards all the
