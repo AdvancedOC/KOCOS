@@ -203,9 +203,9 @@ end
 
 ---@param socket KOCOS.NetworkSocket
 function domain:ioctl(socket)
-    return
+    error("unsupported")
 end
 
 KOCOS.network.addDriver(domain.create)
 
-KOCOS.log("Domain socket driver")
+KOCOS.log("Domain socket driver loaded")
