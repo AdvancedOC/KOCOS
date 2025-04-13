@@ -545,6 +545,7 @@ function syscalls.pexit(proc, pid)
     assert(other, "bad pid")
     if pid == proc.pid or proc:isDescendant(pid) or proc.ring < 2 then
         other:kill()
+        if pid == proc.pid then KOCOS.yield() end
     else
         error("permission denied")
     end
