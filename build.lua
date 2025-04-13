@@ -20,6 +20,7 @@ local sources = {
     "src/drivers/gpt.lua",
     "src/drivers/okffs.lua",
     "src/drivers/internet.lua",
+    "src/drivers/domain.lua",
     -- Needs to be last cuz self-boots.
     "src/postlude.lua",
 }

@@ -1,11 +1,11 @@
-# libkernel
-
-Library that defines wrappers for all the syscalls.
-
 # Domain Sockets
 
 A new "domain" protocol with the "channel" subprotocol.
 These communicate via IPC, where the address is a key into a big table.
+
+# libkernel
+
+Library that defines wrappers for all the syscalls.
 
 # tkill, tjoin, tstatus, tsuspend and tresume syscalls
 
