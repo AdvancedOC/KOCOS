@@ -2,10 +2,6 @@
 
 Library that defines wrappers for all the syscalls.
 
-# tkill, tjoin, tstatus, tsuspend and tresume syscalls
-
-A way to kill a thread, wait for it to finish, pause its execution or resume its execution.
-
 # Radio System
 > KOCOS.radio
 

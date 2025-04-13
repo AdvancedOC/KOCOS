@@ -461,6 +461,41 @@ function syscalls.unlock(proc, fd)
     return res.lock:unlock()
 end
 
+function syscalls.tkill(proc, tid, msg, trace)
+    assert(type(tid) == "number", "bad thread id")
+    assert(type(msg) == "string" or type(msg) == "nil", "bad error")
+    assert(type(trace) == "string" or type(trace) == "nil", "bad trace")
+    local thread = proc.threads[tid]
+    assert(thread, "bad thread id")
+    thread:kill(msg, trace)
+end
+
+function syscalls.tjoin(proc, tid)
+    assert(type(tid) == "number", "bad thread id")
+    while proc.threads[tid] do KOCOS.yield() end
+end
+
+function syscalls.tstatus(proc, tid)
+    assert(type(tid) == "number", "bad thread id")
+    local thread = proc.threads[tid]
+    assert(thread, "bad thread id")
+    return thread:status()
+end
+
+function syscalls.tsuspend(proc, tid)
+    assert(type(tid) == "number", "bad thread id")
+    local thread = proc.threads[tid]
+    assert(thread, "bad thread id")
+    thread:suspend()
+end
+
+function syscalls.tresume(proc, tid)
+    assert(type(tid) == "number", "bad thread id")
+    local thread = proc.threads[tid]
+    assert(thread, "bad thread id")
+    thread:resume()
+end
+
 -- End of thread syscalls
 
 -- Process syscalls
@@ -520,7 +555,7 @@ function syscalls.pawait(_, pid)
         local proc = KOCOS.process.byPid(pid)
         if not proc then error("process terminated") end
         if not next(proc.threads) then break end
-        coroutine.yield()
+        KOCOS.yield()
     end
 end
 
@@ -528,7 +563,7 @@ end
 function syscalls.pwait(_, pid)
     assert(type(pid) == "number", "bad pid")
 
-    while KOCOS.process.byPid(pid) do coroutine.yield() end
+    while KOCOS.process.byPid(pid) do KOCOS.yield() end
 end
 
 ---@param status integer
