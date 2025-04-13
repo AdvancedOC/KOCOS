@@ -1,8 +1,3 @@
-# Domain Sockets
-
-A new "domain" protocol with the "channel" subprotocol.
-These communicate via IPC, where the address is a key into a big table.
-
 # libkernel
 
 Library that defines wrappers for all the syscalls.
