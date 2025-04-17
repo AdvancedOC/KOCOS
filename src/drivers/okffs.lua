@@ -305,7 +305,6 @@ function okffs:freeBlockUntracked(block)
     self:writeUint24(block, 0, self.freeList)
     self.freeList = block
     self.activeBlockCount = self.activeBlockCount - 1
-    self:saveState()
 end
 
 ---@param block integer
@@ -892,9 +891,26 @@ function okffs:readFileBlockList(curBlock, curOff, count)
 end
 
 function okffs:overwriteBlockList(curBlock, off, data)
-    error("unimplemented")
     local dataPerSector = self.sectorSize - 5
     while #data > 0 do
+        if curBlock == NULL_BLOCK then break end -- invalid state
+        local next = self:readUint24(curBlock, 0)
+        local len = self:readUintN(curBlock, 3, 2)
+        if off == len and next == NULL_BLOCK then
+            return self:appendToBlockList(curBlock, data)
+        end
+        local remaining = dataPerSector - off
+        local chunk = data:sub(1, remaining)
+        data = data:sub(#chunk+1)
+        self:writeSectorBytes(curBlock, 5+off, chunk)
+        self:writeUintN(curBlock, 3, off + #chunk, 2)
+        if next == NULL_BLOCK and #data > 0 then
+            self:appendToBlockList(curBlock, data)
+            return -- append saves
+        else
+            curBlock = next
+            off = 0
+        end
     end
     self:saveState()
 end

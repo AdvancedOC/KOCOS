@@ -8,11 +8,13 @@ local libs = {...}
 
 ---@type {[string]: Build.LibInfo}
 local buildInfo = {
-    libkernel = {
-        directory = "lib/libkernel",
+    liblua = {
+        directory = "lib/liblua",
         libs = {},
         modules = {
             syscalls = "syscalls.lua",
+            -- _start is the entry symbol
+            _start = "package.lua",
         },
     },
     libkelp = {

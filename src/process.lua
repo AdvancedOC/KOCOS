@@ -154,6 +154,7 @@ KOCOS.thread = thread
 ---@field threads {[integer]: KOCOS.Thread}
 ---@field children {[integer]: KOCOS.Process}
 ---@field modules {[string]: string}
+---@field sources {[string]: string}
 ---@field resources {[integer]: KOCOS.Resource}
 ---@field traced boolean
 local process = {}
@@ -285,6 +286,7 @@ local function rawSpawn(init, config)
     proc.namespace = namespace
     proc.threads = {}
     proc.modules = {}
+    proc.sources = {}
     proc.resources = {}
     proc.uid = uid
 

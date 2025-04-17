@@ -692,6 +692,14 @@ function syscalls.psymbol(proc, symbol)
     return data
 end
 
+---@param symbol string
+function syscalls.psource(proc, symbol)
+    assert(type(symbol) == "string", "bad symbol")
+    local source = proc.sources[symbol]
+    assert(source, "not found")
+    return source
+end
+
 ---@param pid integer
 ---@param event string
 function syscalls.psignal(proc, pid, event, ...)
