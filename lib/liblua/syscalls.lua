@@ -1,5 +1,5 @@
 ---@diagnostic disable: inject-field
-local sys = _G
+local sys = {}
 
 function sys.open(path, mode)
     local err, fd = syscall("open", path, mode)
@@ -25,3 +25,5 @@ function sys.seek(fd, whence, off)
     local err, pos = syscall("seek", fd, whence, off)
     return pos, err
 end
+
+return sys

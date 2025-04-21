@@ -1,0 +1,19 @@
+-- LuaRT, the binary that runs Lua files
+
+local file = arg[1] or "/repl.lua"
+arg = {table.unpack(arg, 2)}
+---@module "lib.liblua.syscalls"
+local sys = require("syscalls")
+
+local f = assert(sys.open(file, "r"))
+local code = ""
+while true do
+    local chunk, err = sys.read(f, math.huge)
+    if err then error(err) end
+    if not chunk then break end
+    code = code .. chunk
+    coroutine.yield()
+end
+assert(sys.close(f))
+
+load(code, "=" .. file)(table.unpack(arg))
