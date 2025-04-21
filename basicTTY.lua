@@ -1211,6 +1211,14 @@ function cmds.log(args)
     print("Closed")
 end
 
+function cmds.hostname(...)
+    local args, opts = parse(...)
+    local name = args[1]
+    local e, n = syscall("hostname", name)
+    assert(n, e)
+    print(n)
+end
+
 ---@param a string
 ---@param b string
 ---@return number
@@ -1236,7 +1244,11 @@ end
 
 local function myBeloved()
     while true do
-        write(stdout, "\x1b[0m\x1b[34m> \x1b[0m")
+        local pi = assert(pinfo())
+        local uid = pi.uid
+        local _, uinfo = syscall("uinfo", uid)
+        local _, hostname = syscall("hostname")
+        write(stdout, string.format("\x1b[0m\x1b[32m%s\x1b[0m@\x1b[96m%s \x1b[34m> \x1b[0m", uinfo.name, hostname))
         local line = readLine()
 
         -- Basic program that traverses filesystem

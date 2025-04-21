@@ -1,6 +1,7 @@
-# libkernel
+# liblua
 
-Library that defines wrappers for all the syscalls.
+Library that defines wrappers for all the syscalls and implements
+Lua standard library.
 
 # Radio System
 > KOCOS.radio

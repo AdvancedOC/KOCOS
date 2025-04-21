@@ -554,9 +554,9 @@ end
 
 ---@param pid integer
 function syscalls.pinfo(proc, pid)
-    assert(type(pid) == "number", "bad pid")
+    assert(type(pid) == "number" or type(pid) == "nil", "bad pid")
 
-    local requested = KOCOS.process.byPid(pid)
+    local requested = KOCOS.process.byPid(pid or proc.pid)
     assert(requested, "bad pid")
 
     local data = {
@@ -819,6 +819,15 @@ end
 function syscalls.cinvoke(proc, addr, ...)
     assert(proc.ring <= component.ringFor(addr), "permission denied")
     return component.invoke(addr, ...)
+end
+
+function syscalls.hostname(proc, hostname)
+    assert(type(hostname) == "string" or type(hostname) == "nil", "bad hostname")
+    if hostname then
+        assert(proc.ring <= 1, "permission denied")
+        KOCOS.hostname = hostname
+    end
+    return KOCOS.hostname
 end
 
 -- End of component syscalls
