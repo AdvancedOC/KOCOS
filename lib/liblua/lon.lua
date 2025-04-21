@@ -6,6 +6,13 @@ function lon.encode(v, pretty)
         if type(val) == "nil" then
             return "nil"
         elseif type(val) == "number" then
+            if val == math.huge then
+                return "1/0"
+            elseif val == -math.huge then
+                return "-1/0"
+            elseif val ~= val then
+                return "-(0/0)"
+            end
             return tostring(val)
         elseif type(val) == "boolean" then
             return val and "true" or "false" -- saves ram

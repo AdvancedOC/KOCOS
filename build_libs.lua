@@ -15,6 +15,7 @@ local buildInfo = {
             syscalls = "syscalls.lua",
             lon = "lon.lua",
             io = "io.lua",
+            buffer = "buffer.lua",
             os = "os.lua",
             base = "base.lua",
             -- _start is the entry symbol
