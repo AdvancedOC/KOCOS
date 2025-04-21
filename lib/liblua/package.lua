@@ -86,4 +86,9 @@ package.searchers = {
 }
 
 -- TODO: get status and exit
-require("main")
+local ok, err = xpcall(require, debug.traceback, "main")
+if not ok then
+    sys.write(2, err .. "\n")
+    sys.exit(err)
+end
+sys.exit(err)

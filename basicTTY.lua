@@ -1219,6 +1219,11 @@ function cmds.hostname(...)
     print(n)
 end
 
+function cmds.sleep(...)
+    local args, opts = parse(...)
+    coroutine.yield(tonumber(args[1]))
+end
+
 ---@param a string
 ---@param b string
 ---@return number

@@ -26,4 +26,9 @@ function sys.seek(fd, whence, off)
     return pos, err
 end
 
+function sys.exit(status)
+    local err = syscall("exit", status)
+    return err == nil, err
+end
+
 return sys

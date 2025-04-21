@@ -655,7 +655,7 @@ function syscalls.pspawn(proc, init, config)
     data.args[0] = data.args[0] or init
     for i, arg in pairs(data.args) do
         assert(type(i) == "number", "args is not array")
-        assert(i >= 0 and i <= #arg, "args is not array")
+        assert(i >= 0 and i <= #data.args, "args is not array")
         assert(type(arg) == "string", "args are not strings")
     end
     assert(type(data.env) == "table", "bad env")
