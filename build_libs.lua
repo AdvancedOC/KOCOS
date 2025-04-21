@@ -13,6 +13,7 @@ local buildInfo = {
         libs = {},
         modules = {
             syscalls = "syscalls.lua",
+            lon = "lon.lua",
             -- _start is the entry symbol
             _start = "package.lua",
         },
