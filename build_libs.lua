@@ -14,6 +14,9 @@ local buildInfo = {
         modules = {
             syscalls = "syscalls.lua",
             lon = "lon.lua",
+            io = "io.lua",
+            os = "os.lua",
+            base = "base.lua",
             -- _start is the entry symbol
             _start = "package.lua",
         },

@@ -323,7 +323,6 @@ function tty:put(c)
     elseif c == "\t" then
         self:flush()
         self.x = self.x + 4
-        self.x = math.floor(self.x / 4) * 4
     elseif c:byte() == 0x07 then
         self:flush()
         computer.beep() -- Bell beeps.

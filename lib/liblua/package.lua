@@ -89,7 +89,11 @@ package.searchers = {
     -- TODO: native libraries
 }
 
--- TODO: get status and exit
+-- The entire runtime
+require("base")
+require("io")
+require("os")
+
 local ok, err = xpcall(require, debug.traceback, "main")
 if not ok then
     sys.write(2, err .. "\n")
