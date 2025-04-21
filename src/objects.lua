@@ -169,7 +169,16 @@ end
 
 ---@param path string
 function KOCOS.readFile(path)
-
+    local f = assert(KOCOS.fs.open(path, "r"))
+    local data = ""
+    while true do
+        local chunk, err = KOCOS.fs.read(f, math.huge)
+        if err then KOCOS.fs.close(f) error(err) end
+        if not chunk then break end
+        data = data .. chunk
+    end
+    KOCOS.fs.close(f)
+    return data
 end
 
 ---@return Build.KelpObject?
@@ -180,10 +189,32 @@ function KOCOS.loadObject(code)
     end
 end
 
+KOCOS.addObjectLoader(kelp.parse)
+
 ---@param proc KOCOS.Process
 ---@param obj Build.KelpObject
 function KOCOS.linkInProcess(proc, obj)
-
+    local loaded = {}
+    ---@param o Build.KelpObject
+    local function addModulesToProcess(o)
+        for mod, data in pairs(o.modules) do
+            assert((proc.modules[mod] or data) == data, "conflicting module " .. mod)
+            proc.modules[mod] = data
+        end
+        for mod, source in pairs(o.sourceMaps) do
+            -- conflicts dont matter much
+            proc.sources[mod] = source
+        end
+        for _, dep in ipairs(o.dependencies) do
+            if not loaded[dep] then
+                loaded[dep] = true
+                local code = KOCOS.readFile(dep)
+                local depObj = assert(KOCOS.loadObject(code), "bad dependency: " .. dep)
+                addModulesToProcess(depObj)
+            end
+        end
+    end
+    addModulesToProcess(obj)
 end
 
 KOCOS.process.addLoader({
@@ -197,7 +228,9 @@ KOCOS.process.addLoader({
         KOCOS.linkInProcess(proc, obj)
         local start = proc.modules["_start"]
         local startFile = proc.sources["_start"] or "_start"
-        local f = assert(load(start, "=" .. startFile))
+        local f = assert(load(start, "=" .. startFile, nil, proc.namespace))
         proc:attach(f, "main")
     end
 })
+
+KOCOS.log("Object loader loaded")

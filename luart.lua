@@ -16,4 +16,4 @@ while true do
 end
 assert(sys.close(f))
 
-load(code, "=" .. file)(table.unpack(arg))
+return load(code, "=" .. file)(table.unpack(arg))

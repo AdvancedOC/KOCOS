@@ -46,7 +46,7 @@ function package.searchpath(name, path, sep, rep)
             return toCheck
         end
     end
-    return "fail", "not found"
+    return nil, "not found"
 end
 
 ---@parma modname string
@@ -68,9 +68,13 @@ package.searchers = {
         return package.preload[mod], ':preload:'
     end,
     function(mod)
+        return loadModule(mod), ':module:'
+    end,
+    function(mod)
         local f = package.searchpath(mod, package.path)
         if f then
-            local fd = sys.open(f, "r")
+            _K.logAll("searchpath", f)
+            local fd = assert(sys.open(f, "r"))
             local data = ""
             while true do
                 local chunk, err = sys.read(fd, math.huge)

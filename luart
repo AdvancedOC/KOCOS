@@ -1,6 +1,8 @@
 KELPv1
-Emain
-1D1
+E@deps
+E
+/lib/liblua.somain
+1D8
 -- LuaRT, the binary that runs Lua files
 
 local file = arg[1] or "/repl.lua"
@@ -19,9 +21,7 @@ while true do
 end
 assert(sys.close(f))
 
-load(code, "=" .. file)(table.unpack(arg))
-@deps
-E
-/lib/liblua.so@sourcemap
+return load(code, "=" .. file)(table.unpack(arg))
+@sourcemap
 E
 main=luart.lua

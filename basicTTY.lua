@@ -1224,6 +1224,25 @@ function cmds.sleep(...)
     coroutine.yield(tonumber(args[1]))
 end
 
+local function pspawn(init, conf)
+    local err, pid = syscall("pspawn", init, conf)
+    return pid, err
+end
+
+function cmds.lua(args)
+    local pid = assert(pspawn("/luart", {
+        -- this is such an epic banger idea
+        args = args,
+        fdMap = {
+            [0] = stdout,
+            [1] = stdin,
+            [2] = stdout,
+        },
+    }))
+    syscall("pawait", pid)
+    syscall("pexit", pid)
+end
+
 ---@param a string
 ---@param b string
 ---@return number
