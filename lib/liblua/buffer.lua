@@ -3,6 +3,7 @@
 ---@field read fun(resource: any, len: number): string?, string?
 ---@field write fun(resource: any, buffer: string): boolean, string
 ---@field seek fun(resource: any, whence: seekwhence, off: integer): integer, string
+---@field ioctl fun(resource: any, action: string, ...): ...
 ---@field close fun(resource: any): boolean, string
 
 ---@class buffer
@@ -48,6 +49,10 @@ end
 function buffer:close()
     self.buffer = nil
     self.stream.close(self.stream.resource)
+end
+
+function buffer:ioctl(action, ...)
+    return self.stream.ioctl(self.stream.resource, action, ...)
 end
 
 return buffer
