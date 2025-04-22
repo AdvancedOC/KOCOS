@@ -161,6 +161,18 @@ function tty:handleChar(char, code)
     if not self.auxPort then return end
     -- KOCOS custom escape sequences cuz yeah
     local mods = 0
+    if KOCOS.keyboard.isShiftDown() then
+        mods = mods + 1
+    end
+    if KOCOS.keyboard.isAltDown() then
+        mods = mods + 2
+    end
+    if KOCOS.keyboard.isControlDown() then
+        mods = mods + 4
+    end
+    if KOCOS.keyboard.isKeyDown(KOCOS.keyboard.keys) then
+        mods = mods + 8
+    end
     local num = char
     local term = "|"
     if isControlCharacter(char) then

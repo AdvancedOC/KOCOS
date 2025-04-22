@@ -68,12 +68,17 @@ package.searchers = {
         return package.preload[mod], ':preload:'
     end,
     function(mod)
+        local module = package.modules[mod]
+        if module then
+            return load(module.data, "=" .. module.file), ':module:'
+        end
+    end,
+    function(mod)
         return loadModule(mod), ':module:'
     end,
     function(mod)
         local f = package.searchpath(mod, package.path)
         if f then
-            _K.logAll("searchpath", f)
             local fd = assert(sys.open(f, "r"))
             local data = ""
             while true do
@@ -86,8 +91,27 @@ package.searchers = {
             return load(data, "=" .. f), f
         end
     end,
-    -- TODO: native libraries
 }
+
+local dl = require("dl")
+table.insert(package.searchers, function(mod)
+    -- Lua all-in-one Loader lol
+    local dot = mod:find("%.")
+    local lib = mod
+    if dot then
+        lib = mod:sub(1, dot-1)
+    end
+
+    local libf = package.searchpath(lib, package.cpath)
+    if libf then
+        local obj = dl.open(libf)
+        dl.link(obj)
+        local code, src = dl.sym(obj, mod)
+        assert(code, "missing " .. mod .. " in " .. libf)
+        src = src or mod
+        return load(code, "=" .. src)
+    end
+end)
 
 -- The entire runtime
 require("base")

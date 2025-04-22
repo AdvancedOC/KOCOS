@@ -1380,6 +1380,10 @@ while true do
         _K.event.pop("key_down")
     end
 
+    if _K.keyboard.isControlDown() and _K.keyboard.isKeyDown(_K.keyboard.keys.r) then
+        _OS.computer.shutdown(true)
+    end
+
     if inputBuffer and not tty.auxPort then
         local ok, _, char, code = _K.event.pop("key_down")
         if ok then
@@ -1405,6 +1409,13 @@ while true do
                 tty:write(lib.char(char))
                 inputBuffer = inputBuffer .. lib.char(char)
             end
+        end
+
+        local ok, _, clip = _K.event.pop("clipboard")
+        if ok then
+            local v = clip:gsub("\n", " ")
+            inputBuffer = inputBuffer .. v
+            tty:write(v)
         end
     end
 

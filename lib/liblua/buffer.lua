@@ -13,6 +13,7 @@
 ---@field buffer string?
 ---@field buffering "no"|"line"|"full"
 ---@field buflen integer
+---@field closed boolean
 local buffer = {}
 buffer.__index = buffer
 
@@ -27,6 +28,7 @@ function buffer.wrap(stream, mode)
         buffer = "",
         -- 16KiB buffer max
         buflen = 16*1024,
+        closed = false,
     }, buffer)
 end
 
@@ -94,6 +96,7 @@ local eot = string.char(4)
 ---@return string?
 function buffer:getchunk()
     if not self.buffer then return end
+    if self.closed then return end
     if self.mode == "r" then
         -- read from buffer
         if self.buffer == "" then
@@ -107,6 +110,7 @@ function buffer:getchunk()
         if self.text and eotLoc then
             chunk = chunk:sub(1, eotLoc-1)
             self.buffer = nil -- pretend file is closed
+            self.closed = true
             return -- return EoF.
         end
         return chunk
@@ -225,6 +229,7 @@ end
 function buffer:close()
     self:flush()
     self.buffer = nil
+    self.closed = true
     return self.stream.close(self.stream.resource)
 end
 

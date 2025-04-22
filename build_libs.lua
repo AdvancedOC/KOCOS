@@ -22,6 +22,7 @@ local buildInfo = {
             base = "base.lua",
             process = "process.lua",
             terminal = "terminal.lua",
+            dl = "dl.lua",
             -- _start is the entry symbol
             _start = "package.lua",
         },
@@ -31,6 +32,15 @@ local buildInfo = {
         libs = {},
         modules = {
             kelp = "kelp.lua",
+        },
+    },
+    libkvm = {
+        directory = "lib/libkvm",
+        libs = {
+            "/lib/liblua.so",
+        },
+        modules = {
+            kvm = "kvm.lua",
         },
     },
 }

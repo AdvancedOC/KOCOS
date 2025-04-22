@@ -13,6 +13,7 @@ local sources = {
     "src/network.lua",
     "src/syscalls.lua",
     "src/tty.lua",
+    "src/keyboard.lua",
     "src/auth.lua",
     "src/radio.lua",
     "src/router.lua",
