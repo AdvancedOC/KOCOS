@@ -1,4 +1,5 @@
 -- Only defines globals lol
+---@diagnostic disable: lowercase-global
 local sys = require("syscalls")
 local io = require("io")
 
@@ -27,7 +28,14 @@ function print(...)
     io.write(table.concat({...}, "\t"), "\n")
 end
 
----@diagnostic disable-next-line: lowercase-global
+function eprint(...)
+    io.stderr:write(table.concat({...}, "\t"), "\n")
+end
+
 function printf(fmt, ...)
     print(string.format(fmt, ...))
+end
+
+function eprintf(fmt, ...)
+    eprint(string.format(fmt, ...))
 end

@@ -1,26 +1,10 @@
 -- Lua REPL
 local sys = require("syscalls")
 local lon = require("lon")
+local io = require("io")
 
-local stdout = 0
-local stdin = 1
-local commandStdinBuffer = ""
-local function readLine()
-    while true do
-        commandStdinBuffer = commandStdinBuffer .. assert(sys.read(stdin, math.huge))
-        local lineEnd = commandStdinBuffer:find('%\n')
-        if lineEnd then
-            local line = commandStdinBuffer:sub(1, lineEnd-1)
-            commandStdinBuffer = commandStdinBuffer:sub(lineEnd+1)
-            return line
-        else
-            coroutine.yield()
-        end
-    end
-end
-
-sys.write(stdout, _VERSION .. "\n")
-sys.write(stdout, "Type exit to exit\n")
+print(_VERSION)
+print("Type exit to exit")
 
 local function printExpr(asExpr)
     local r = {asExpr()}
@@ -29,26 +13,26 @@ local function printExpr(asExpr)
         encoded[i] = lon.encode(r[i], true)
     end
     if #encoded > 0 then
-        sys.write(stdout, table.concat(encoded, ", ") .. "\n")
+        print(table.concat(encoded, ", "))
     end
 end
 
 while true do
-    sys.write(stdout, "\x1b[34mlua> \x1b[0m")
-    local code = readLine()
+    io.write("\x1b[34mlua> \x1b[0m")
+    local code = io.read("l")
     if code == "exit" then break end
     if #code > 0 then
         local asExpr = load("return " .. code, "=repl")
         if asExpr then
             local ok, err = xpcall(printExpr, debug.traceback, asExpr)
-            if not ok then sys.write(2, err .. "\n") end
+            if not ok then print(err) end
         else
             local stmt, err = load(code, "=repl")
             if stmt then
                 local ok, err = xpcall(stmt, debug.traceback)
-                if not ok then sys.write(2, err .. "\n") end
+                if not ok then eprint(err) end
             else
-                sys.write(2, err .. "\n")
+                eprint(err)
             end
         end
     end

@@ -35,7 +35,7 @@ for _, source in ipairs(sources) do
     if file then
         local src = file:read("*all")
         code = code .. "do\n" .. src .. "\nend\n"
-        io.close(file)
+        file:close()
     else
         print("WARNING: Missing file " .. source .. " but continuing anyways (assuming removed feature)")
     end

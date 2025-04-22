@@ -101,6 +101,20 @@ function io.open(filename, mode)
     return io.from(fd, mode), nil
 end
 
+---@param inFile? buffer
+---@param outFile? buffer
+function io.mkpipe(inFile, outFile)
+    ---@diagnostic disable-next-line: cast-local-type
+    inFile = inFile or assert(io.tmpfile())
+
+    ---@diagnostic disable-next-line: cast-local-type
+    outFile = outFile or assert(io.tmpfile())
+
+    local fd, err = sys.mkpipe(inFile:unwrap(), outFile:unwrap())
+    if err then return nil, err end
+    return io.from(fd, "w")
+end
+
 function io.ftype(path)
     path = io.resolved(path)
     return sys.ftype(path)
@@ -167,6 +181,12 @@ end
 
 function io.flush()
     return stdout:flush()
+end
+
+---@param f? buffer
+function io.close(f)
+    f = f or stdout
+    f:close()
 end
 
 return io

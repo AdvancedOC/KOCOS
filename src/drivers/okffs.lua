@@ -1128,24 +1128,4 @@ KOCOS.test("OKFFS driver", function()
     assert(next(manager.fileStates) == nil, "file states leaked")
 end)
 
-KOCOS.defer(function()
-    if not KOCOS.fs.exists("/tmp") then return end
-    -- 2^18 means 256KiB
-    local drive = KOCOS.testing.drive(512, 2^18, "OKFFS tmp drive")
-    ---@type KOCOS.Partition
-    local partition = {
-        name = "OKFFS mount",
-        drive = drive,
-        kind = "user",
-        startByte = 0,
-        byteSize = drive.getCapacity(),
-        readonly = false,
-        storedKind = KOCOS.testing.uuid(),
-        uuid = KOCOS.testing.uuid(),
-    }
-    okffs.format(partition, "okffs")
-    KOCOS.fs.mount("/tmp", partition)
-    KOCOS.log("Mounted OKFFS tmp")
-end, 1)
-
 KOCOS.log("OKFFS driver loaded")
