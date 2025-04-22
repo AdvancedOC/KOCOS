@@ -14,7 +14,11 @@ Fully supports async I/O.
 # more liblua modules
 
 `terminal` to provide an API around escape codes.
-`dl` for dynamic linking (and, subsequently, support for requiring kelp libraries)
+
+# Dynamic library cache in the kernel
+
+Most of the time spent running lua programs is spent
+parsing the gianormous amalgamation that is `/lib/liblua.so`.
 
 # Audio System
 > KOCOS.audio

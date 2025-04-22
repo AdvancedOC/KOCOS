@@ -181,11 +181,18 @@ function KOCOS.readFile(path)
     return data
 end
 
+-- TODO: clear it from time to time
+local cache = {}
+
 ---@return Build.KelpObject?
 function KOCOS.loadObject(code)
+    if cache[code] then return cache[code] end
     for _, loader in ipairs(KOCOS.objectLoaders) do
         local ok, obj = pcall(loader, code)
-        if ok then return obj end
+        if ok then
+            cache[code] = obj
+            return obj
+        end
     end
 end
 

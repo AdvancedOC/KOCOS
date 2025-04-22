@@ -1,5 +1,6 @@
 local testing = {}
 
+---@return string
 function testing.uuid()
     local hexDigits = "0123456789abcdef"
     local rawHex = ""
