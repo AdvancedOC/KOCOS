@@ -1,8 +1,3 @@
-# liblua
-
-Library that defines wrappers for all the syscalls and implements
-Lua standard library.
-
 # Radio System
 > KOCOS.radio
 
@@ -17,6 +12,11 @@ Should also provide radio sockets.
 Global keyboard interface that is very extra good.
 
 Also TTY keyboard input via the aux port.
+
+# more liblua modules
+
+`terminal` to provide an API around escape codes.
+`dl` for dynamic linking (and, subsequently, support for requiring kelp libraries)
 
 # Audio System
 > KOCOS.audio

@@ -63,8 +63,7 @@ local function queryPackageInfo(package)
     for _, repo in ipairs(conf.repos) do
         if repo.type == "internet" then
             local f, err = download(repo.repo .. "/" .. package .. ".kpm")
-            _K.logAll(f, err)
-            if f then
+            if f and #f > 0 and lon.decode(f) then
                 local info = lon.decode(f)
                 info.url = repo.repo
                 allPackages[package] = info

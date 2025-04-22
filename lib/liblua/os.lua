@@ -64,5 +64,6 @@ function os.execute(command)
     p:wait()
     ---@type integer
     local e = p:status()
+    p:forceKill()
     return e == 0, "exit", e
 end

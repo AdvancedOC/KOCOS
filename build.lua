@@ -14,6 +14,7 @@ local sources = {
     "src/syscalls.lua",
     "src/tty.lua",
     "src/auth.lua",
+    "src/radio.lua",
     "src/router.lua",
     "src/drivers/procfs.lua",
     "src/drivers/devfs.lua",
