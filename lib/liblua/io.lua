@@ -189,4 +189,30 @@ function io.close(f)
     f:close()
 end
 
+-- Checks for files line the shell would
+---@param name string
+---@param path? string
+---@param extensions? string
+---@param sep? string
+---@return string?
+function io.searchpath(name, path, extensions, sep, allowCWD)
+    path = path or sys.getenv("PATH") or "/:/sbin:/bin:/usr/bin:/usr/local/bin:/mnt/bin:/mnt/local/bin"
+    extensions = extensions or ".lua:.kelp:.o"
+    sep = sep or ':'
+    if allowCWD == nil then allowCWD = true end
+    if allowCWD then path = path .. sep .. io.cwd() end
+
+    local fextensions = string.split(extensions, sep)
+    table.insert(fextensions, "")
+    local parts = string.split(path, sep)
+    for _, ext in ipairs(fextensions) do
+        for _, dir in ipairs(parts) do
+            local p = io.join(dir, name .. ext)
+            if io.exists(p) then
+                return p
+            end
+        end
+    end
+end
+
 return io

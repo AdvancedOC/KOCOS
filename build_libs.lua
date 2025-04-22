@@ -10,7 +10,9 @@ local libs = {...}
 local buildInfo = {
     liblua = {
         directory = "lib/liblua",
-        libs = {},
+        libs = {
+            "/lib/libkelp.so",
+        },
         modules = {
             syscalls = "syscalls.lua",
             lon = "lon.lua",
@@ -18,6 +20,8 @@ local buildInfo = {
             buffer = "buffer.lua",
             os = "os.lua",
             base = "base.lua",
+            process = "process.lua",
+            terminal = "terminal.lua",
             -- _start is the entry symbol
             _start = "package.lua",
         },

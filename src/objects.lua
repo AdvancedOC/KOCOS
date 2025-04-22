@@ -206,6 +206,7 @@ function KOCOS.linkInProcess(proc, obj)
             proc.sources[mod] = source
         end
         for _, dep in ipairs(o.dependencies) do
+            if not KOCOS.fs.exists(dep) then error("Missing " .. dep) end
             if not loaded[dep] then
                 loaded[dep] = true
                 local code = KOCOS.readFile(dep)
@@ -219,6 +220,7 @@ end
 
 KOCOS.process.addLoader({
     check = function(proc, path)
+        if not KOCOS.fs.exists(path) then return false, nil end
         local code = KOCOS.readFile(path)
         local obj = KOCOS.loadObject(code)
         return obj ~= nil, obj
