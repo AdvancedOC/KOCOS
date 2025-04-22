@@ -98,6 +98,10 @@ end
 function io.open(filename, mode)
     filename = io.resolved(filename)
     mode = mode or "r"
+    if mode:sub(1, 1) ~= "r" and not io.exists(filename) then
+        local ok, err = io.touch(filename, 2^16-1)
+        if not ok then return nil, err end
+    end
     local fd, err = sys.open(filename, mode:sub(1, 1))
     if err then return nil, err end
     return io.from(fd, mode), nil
@@ -220,6 +224,24 @@ end
 ---@param path string
 function io.stat(path)
     return sys.stat(io.resolved(path))
+end
+
+---@param path string
+function io.parentOf(path)
+    if path:sub(1, 1) == "/" then path = path:sub(2) end
+    path = path:reverse()
+    local l = path:find("/", nil, true)
+    if l then return path:sub(l+1):reverse() end
+    return ""
+end
+
+---@param path string
+function io.nameOf(path)
+    if path:sub(1, 1) == "/" then path = path:sub(2) end
+    path = path:reverse()
+    local l = path:find("/", nil, true)
+    if l then path = path:sub(1, l-1) end
+    return path:reverse()
 end
 
 return io

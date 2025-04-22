@@ -135,4 +135,19 @@ function sys.psignal(pid, event, ...)
     return err == nil, err
 end
 
+function sys.cprimary(type)
+    local err, p = syscall("cprimary", type)
+    return p, err
+end
+
+function sys.cproxy(addr)
+    local err, p = syscall("cproxy", addr)
+    return p, err
+end
+
+function sys.clist(type, exact)
+    local err, l = syscall("clist", type, exact)
+    return l, err
+end
+
 return sys
