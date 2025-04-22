@@ -1,14 +1,10 @@
 KELPv1
-E@deps
-E
-/lib/liblua.somain
-163
+Emain
+122
 -- LuaRT, the binary that runs Lua files
 
 local file = arg[1] or "/repl.lua"
 arg = {table.unpack(arg, 2)}
----@module "lib.liblua.syscalls"
-local sys = require("syscalls")
 ---@module "lib.liblua.io"
 local io = require("io")
 
@@ -19,4 +15,6 @@ assert(f:close())
 return load(code, "=" .. file)(table.unpack(arg))
 @sourcemap
 E
-main=luart.lua
+main=luart.lua@deps
+E
+/lib/liblua.so

@@ -289,6 +289,7 @@ local function rawSpawn(init, config)
     proc.sources = {}
     proc.resources = {}
     proc.uid = uid
+    proc.status = 0
 
     if type(init) == "function" then
         proc:attach(init)

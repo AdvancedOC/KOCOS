@@ -115,9 +115,9 @@ function sys.pinfo(pid)
     return info, err
 end
 
-function sys.pstatus(pid)
-    local err, info = syscall("pstatus", pid)
-    return info, err
+function sys.pstatus(pid, status)
+    local err = syscall("pstatus", pid, status)
+    return err == nil, err
 end
 
 function sys.pexit(pid)

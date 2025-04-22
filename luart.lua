@@ -2,8 +2,6 @@
 
 local file = arg[1] or "/repl.lua"
 arg = {table.unpack(arg, 2)}
----@module "lib.liblua.syscalls"
-local sys = require("syscalls")
 ---@module "lib.liblua.io"
 local io = require("io")
 

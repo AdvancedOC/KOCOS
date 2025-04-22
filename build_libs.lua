@@ -41,8 +41,12 @@ if #libs == 0 then
     end
 end
 
-local luac = "lua tools/luac.lua"
-local ld = "lua tools/ld.lua"
+local interp = "lua"
+if _OSVERSION == "KOCOS Demo" then
+    if io.exists("luart") then interp = "luart" end
+end
+local luac = interp .. " tools/luac.lua"
+local ld = interp .. " tools/ld.lua"
 
 local function runCmd(...)
     local cmd = table.concat({...}, " ")

@@ -97,6 +97,6 @@ require("os")
 local ok, err = xpcall(require, debug.traceback, "main")
 if not ok then
     sys.write(2, err .. "\n")
-    sys.exit(err)
+    sys.exit(1)
 end
-sys.exit(err)
+sys.exit(err or 0)

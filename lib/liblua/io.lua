@@ -81,13 +81,15 @@ end
 ---@param mode? iomode
 ---@param contents? string
 ---@param limit? integer
-function io.tmpfile(mode, contents, limit)
-    mode = mode or "w"
+---@param bufmode? iomode
+function io.tmpfile(mode, contents, limit, bufmode)
+    mode = mode or "r"
     contents = contents or ""
     limit = limit or math.huge
+    bufmode = bufmode or "w"
     local fd, err = sys.mopen(mode:sub(1, 1), contents, limit)
     if err then return nil, err end
-    return io.from(fd, mode)
+    return io.from(fd, bufmode)
 end
 
 ---@param filename string
@@ -203,7 +205,7 @@ function io.searchpath(name, path, extensions, sep, allowCWD)
     if allowCWD then path = path .. sep .. io.cwd() end
 
     local fextensions = string.split(extensions, sep)
-    table.insert(fextensions, "")
+    table.insert(fextensions, 1, "")
     local parts = string.split(path, sep)
     for _, ext in ipairs(fextensions) do
         for _, dir in ipairs(parts) do
