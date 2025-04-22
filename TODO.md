@@ -1,17 +1,15 @@
-# Radio System
-> KOCOS.radio
-
-Combines tunnels and modems under one unified interface.
-Useful for network drivers.
-
-Should also provide radio sockets.
-
 # Keyboard System
 > KOCOS.keyboard
 
 Global keyboard interface that is very extra good.
 
 Also TTY keyboard input via the aux port.
+
+# Radio sockets
+
+"radio" protocol, with "packet" subprotocol.
+Connection-less, just send and receive.
+Fully supports async I/O.
 
 # more liblua modules
 
