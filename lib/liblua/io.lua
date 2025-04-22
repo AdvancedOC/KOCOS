@@ -215,4 +215,9 @@ function io.searchpath(name, path, extensions, sep, allowCWD)
     end
 end
 
+---@param path string
+function io.stat(path)
+    return sys.stat(io.resolved(path))
+end
+
 return io

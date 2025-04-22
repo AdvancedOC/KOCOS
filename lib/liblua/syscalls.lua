@@ -21,6 +21,11 @@ function sys.remove(path)
     return err == nil, err
 end
 
+function sys.stat(path)
+    local err, info = syscall("stat", path)
+    return info, err
+end
+
 function sys.mopen(mode, contents, limit)
     local err, fd = syscall("mopen", mode, contents, limit)
     return fd, err
@@ -82,6 +87,51 @@ end
 
 function sys.setenv(env, val)
     local err = syscall("setenv", env, val)
+    return err == nil, err
+end
+
+function sys.pself()
+    local err, pid = syscall("pself")
+    return pid, err
+end
+
+function sys.pnext(pid)
+    local err, npid = syscall("pnext", pid)
+    return npid, err
+end
+
+function sys.pawait(pid)
+    local err = syscall("pawait", pid)
+    return err == nil, err
+end
+
+function sys.pwait(pid)
+    local err = syscall("pwait", pid)
+    return err == nil, err
+end
+
+function sys.pinfo(pid)
+    local err, info = syscall("pinfo", pid)
+    return info, err
+end
+
+function sys.pstatus(pid)
+    local err, info = syscall("pstatus", pid)
+    return info, err
+end
+
+function sys.pexit(pid)
+    local err = syscall("pexit", pid)
+    return err == nil, err
+end
+
+function sys.pspawn(init, conf)
+    local err, pid = syscall("pspawn", init, conf)
+    return pid, err
+end
+
+function sys.psignal(pid, event, ...)
+    local err = syscall("psignal", pid, event, ...)
     return err == nil, err
 end
 
