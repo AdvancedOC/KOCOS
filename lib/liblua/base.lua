@@ -1,5 +1,6 @@
 -- Only defines globals lol
 local sys = require("syscalls")
+local io = require("io")
 
 ---@param filename string
 ---@param mode? "b"|"t"|"bt"
@@ -23,7 +24,7 @@ function dofile(filename)
 end
 
 function print(...)
-    sys.write(0, table.concat({...}, "\t"))
+    io.write(table.concat({...}, "\t"), "\n")
 end
 
 ---@diagnostic disable-next-line: lowercase-global

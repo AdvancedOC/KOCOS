@@ -1352,6 +1352,7 @@ while true do
             local lib = unicode or string
             local backspace = 0x0E
             local enter = 0x1C
+            local home = 0xC7
             if code == enter then
                 clear(stdin)
                 write(stdin, inputBuffer .. "\n")
@@ -1361,6 +1362,11 @@ while true do
                 local t = lib.sub(inputBuffer, -1)
                 tty:unwrite(t)
                 inputBuffer = lib.sub(inputBuffer, 1, -2)
+            elseif code == home then
+                clear(stdin)
+                write(stdin, inputBuffer .. string.byte(4))
+                tty:write('\n')
+                inputBuffer = nil
             elseif not isEscape(char) then
                 tty:write(lib.char(char))
                 inputBuffer = inputBuffer .. lib.char(char)

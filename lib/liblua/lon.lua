@@ -32,7 +32,7 @@ function lon.encode(v, pretty)
             local done = {}
             for i=1,#val do
                 done[i] = true
-                table.insert(fields, rawEncode(val))
+                table.insert(fields, rawEncode(val[i]))
             end
             for k, field in pairs(val) do
                 if not done[k] then

@@ -728,6 +728,21 @@ function syscalls.exit(proc, status)
     KOCOS.yield() -- system yield moment
 end
 
+function syscalls.getenv(proc, env)
+    assert(type(env) == "string", "bad env name")
+    return proc.env[env]
+end
+
+function syscalls.getenvs(proc)
+    return table.copy(proc.env)
+end
+
+function syscalls.setenv(proc, env, value)
+    assert(type(env) == "string", "bad env name")
+    assert(type(value) == "string", "bad env value")
+    proc.env[env] = value
+end
+
 -- End of process syscalls
 
 -- Start of user syscalls

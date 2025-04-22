@@ -28,7 +28,9 @@ local function printExpr(asExpr)
     for i=1,#r do
         encoded[i] = lon.encode(r[i], true)
     end
-    sys.write(stdout, table.concat(encoded, ", ") .. "\n")
+    if #encoded > 0 then
+        sys.write(stdout, table.concat(encoded, ", ") .. "\n")
+    end
 end
 
 while true do

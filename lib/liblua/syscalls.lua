@@ -6,6 +6,31 @@ function sys.open(path, mode)
     return fd, err
 end
 
+function sys.touch(path, permissions)
+    local err = syscall("touch", path, permissions)
+    return err == nil, err
+end
+
+function sys.mkdir(path, permissions)
+    local err = syscall("mkdir", path, permissions)
+    return err == nil, err
+end
+
+function sys.remove(path)
+    local err = syscall("remove", path)
+    return err == nil, err
+end
+
+function sys.mopen(mode, contents, limit)
+    local err, fd = syscall("mopen", mode, contents, limit)
+    return fd, err
+end
+
+function sys.mkpipe(inFD, outFD)
+    local err, fd = syscall("mkpipe", inFD, outFD)
+    return fd, err
+end
+
 function sys.close(fd)
     local err = syscall("close", fd)
     return err == nil, err
@@ -26,8 +51,37 @@ function sys.seek(fd, whence, off)
     return pos, err
 end
 
+function sys.ioctl(fd, action, ...)
+    return syscall("ioctl", fd, action, ...)
+end
+
+function sys.ftype(path)
+    local err, t = syscall("ftype", path)
+    return t, err
+end
+
+function sys.list(path)
+    local err, l = syscall("list", path)
+    return l, err
+end
+
 function sys.exit(status)
     local err = syscall("exit", status)
+    return err == nil, err
+end
+
+function sys.getenv(env)
+    local err, val = syscall("getenv", env)
+    return val, err
+end
+
+function sys.getenvs()
+    local err, vals = syscall("getenvs")
+    return vals, err
+end
+
+function sys.setenv(env, val)
+    local err = syscall("setenv", env, val)
     return err == nil, err
 end
 
