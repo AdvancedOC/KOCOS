@@ -814,6 +814,25 @@ function cmds.run(args)
     syscall("pexit", pid)
 end
 
+function cmds.radiocat(args)
+    local p = tonumber(args[1]) or 1
+    _K.radio.open(p)
+    while true do
+        if _K.event.queued(_K.radio.RADIO_EVENT) then
+            local _, sender, port, data, distance = _K.event.pop(_K.radio.RADIO_EVENT)
+            printf("%s:%d (%.2fm) > %s)", sender, port, distance, data)
+        end
+        coroutine.yield()
+    end
+end
+
+function cmds.radiosend(args)
+    local addr = args[1]
+    local port = tonumber(args[2])
+    local data = args[3]
+    assert(_K.radio.send(addr, port, data))
+end
+
 do
 -- Taken from https://gist.github.com/kymckay/25758d37f8e3872e1636d90ad41fe2ed
 --[[
