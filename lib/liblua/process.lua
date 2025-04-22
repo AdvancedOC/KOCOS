@@ -8,9 +8,10 @@ process.__index = process
 
 local sys = require("syscalls")
 
-process.SIGNAL_TERMINATE = "terminate"
-process.SIGNAL_USER1 = "user1"
-process.SIGNAL_USER2 = "user2"
+process.SIGTERM = "terminate"
+process.SIGUSR1 = "user1"
+process.SIGUSR2 = "user2"
+process.SIGINT = "interrupt"
 
 function process.self()
     return setmetatable({
@@ -88,7 +89,7 @@ function process:status()
 end
 
 function process:kill()
-    self:raise(process.SIGNAL_TERMINATE, assert(sys.pself()))
+    self:raise(process.SIGTERM, assert(sys.pself()))
     -- errors are silenced
     self:wait()
     self:forceKill()

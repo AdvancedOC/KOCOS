@@ -799,6 +799,21 @@ function cmds.bsod()
     _K.process = nil
 end
 
+function cmds.run(args)
+    local cmd = table.remove(args, 1)
+    local err, pid = syscall("pspawn", cmd, {
+        args = args,
+        fdMap = {
+            [0] = stdout,
+            [1] = stdin,
+            [2] = stdout,
+        },
+    })
+    if err then error(err) end
+    syscall("pawait", pid)
+    syscall("pexit", pid)
+end
+
 do
 -- Taken from https://gist.github.com/kymckay/25758d37f8e3872e1636d90ad41fe2ed
 --[[

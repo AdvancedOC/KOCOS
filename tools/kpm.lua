@@ -10,7 +10,9 @@ local internet = assert(sys.cproxy(internetAddr))
 
 -- Just makes a GET lol
 local function actuallyDownload(url)
-    local req = internet.request(url)
+    local req = internet.request(url, nil, {
+        ["User-Agent"] = "Chrome/134.0.0.0"
+    })
     req.finishConnect()
     local data = ""
     while true do
