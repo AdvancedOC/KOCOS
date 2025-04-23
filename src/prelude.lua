@@ -203,16 +203,15 @@ if KOCOS.loggingTTY then
     KOCOS.defer(function()
         tty = KOCOS.tty.create(component.gpu, component.screen)
     end, math.huge)
-
-    KOCOS.defer(function()
-        KOCOS.log("Clearing log TTY")
-        tty:clear()
-        tty = nil
-    end, -math.huge)
 end
 
 if KOCOS.init then
     KOCOS.defer(function()
+        if tty then
+            KOCOS.log("Clearing log TTY")
+            tty:clear()
+            tty = nil
+        end
         KOCOS.log("Running " .. KOCOS.init)
         assert(KOCOS.process.spawn(KOCOS.init, {
             traced = true,

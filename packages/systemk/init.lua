@@ -9,6 +9,11 @@
 ---@field priority number
 ---@field step "init"|"shell"|"services"|"postservices"
 
+local function main()
+local stdout = io.tmpfile()
+local stdin = io.tmpfile()
+local stderr = io.tmpfile()
+
 local lon = require("lon")
 local process = require("process")
 
@@ -59,6 +64,7 @@ local function runService(service)
         runService(dep)
     end
 
+    _K.log("Spawning %s...", service)
     assert(process.spawn(record.init, {
         args = record.args,
         env = record.env,
@@ -79,4 +85,11 @@ end
 
 while true do
     coroutine.yield()
+end
+end
+
+local ok, err = xpcall(main, debug.traceback)
+
+if not ok then
+    _K.logPanic("INIT SYSTEM CRASH: %s", err)
 end
