@@ -24,12 +24,20 @@ function dofile(filename)
     return assert(loadfile(filename))()
 end
 
+local function makeConcatable(...)
+    local t = {...}
+    for i=1,#t do
+        t[i] = tostring(t[i])
+    end
+    return t
+end
+
 function print(...)
-    io.write(table.concat({...}, "\t"), "\n")
+    io.write(table.concat(makeConcatable(...), "\t"), "\n")
 end
 
 function eprint(...)
-    io.stderr:write(table.concat({...}, "\t"), "\n")
+    io.stderr:write(table.concat(makeConcatable(...), "\t"), "\n")
 end
 
 function printf(fmt, ...)

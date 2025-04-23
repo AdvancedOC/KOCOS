@@ -23,6 +23,7 @@ local buildInfo = {
             process = "process.lua",
             terminal = "terminal.lua",
             dl = "dl.lua",
+            component = "component.lua",
             -- _start is the entry symbol
             _start = "package.lua",
         },

@@ -1277,6 +1277,14 @@ function cmds.lua(args)
     syscall("pexit", pid)
 end
 
+function cmds.time(args)
+    local cmd = table.remove(args, 1)
+    assert(cmds[cmd], "unknown command")
+    local start = _OS.computer.uptime()
+    cmds[cmd](args)
+    printf("Took %.2fs", _OS.computer.uptime() - start)
+end
+
 ---@param a string
 ---@param b string
 ---@return number

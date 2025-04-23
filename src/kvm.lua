@@ -209,7 +209,11 @@ function kvm.open(vmName)
             end
         end
 
-        setmetatable(t, {__call = pairs})
+        local key = nil
+        setmetatable(t, {__call = function()
+            key = next(t, key)
+            if key then return key, t[key] end
+        end})
 
         return t
     end

@@ -117,6 +117,7 @@ end)
 require("base")
 require("io")
 require("os")
+require("component")
 
 local ok, err = xpcall(require, debug.traceback, "main")
 if not ok then

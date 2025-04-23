@@ -145,9 +145,26 @@ function sys.cproxy(addr)
     return p, err
 end
 
-function sys.clist(type, exact)
-    local err, l = syscall("clist", type, exact)
+function sys.ctype(addr)
+    local err, t = syscall("ctype", addr)
+    return t, err
+end
+
+function sys.clist(all)
+    local err, l = syscall("clist", all)
     return l, err
+end
+
+function sys.cinvoke(addr, method, ...)
+    return syscall("cinvoke", addr, method, ...)
+end
+
+-- If hostname is nil, it just returns
+-- If hostname is not nil, it will set the name and return
+-- the new name
+function sys.hostname(hostname)
+    local err, name = syscall("hostname", hostname)
+    return name, err
 end
 
 return sys

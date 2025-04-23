@@ -1,10 +1,3 @@
-# Keyboard System
-> KOCOS.keyboard
-
-Global keyboard interface that is very extra good.
-
-Also TTY keyboard input via the aux port.
-
 # Radio sockets
 
 "radio" protocol, with "packet" subprotocol.
@@ -14,11 +7,9 @@ Fully supports async I/O.
 # more liblua modules
 
 `terminal` to provide an API around escape codes.
-
-# Dynamic library cache in the kernel
-
-Most of the time spent running lua programs is spent
-parsing the gianormous amalgamation that is `/lib/liblua.so`.
+`keyboard` to provide keyboard codes.
+`component` to provide convenient wrappers around the component syscalls.
+`socket` to provide convenient wrappers around sockets.
 
 # Audio System
 > KOCOS.audio
@@ -45,10 +36,8 @@ Requires write permissions for that path.
 
 # OKFFS mode changes
 
-Make `w` mode overwrite instead. OKFFS `w` mode is currently broken and needs fixing.
 Add a `erase` syscall to erase bytes starting at the file position.
-
-ManagedFS won't support `a` or `erase`.
+ManagedFS won't support `erase`.
 
 # OKFFS optimizations
 
@@ -196,3 +185,8 @@ filesystem.mount(uuid, "/etc/stuff")
 "kocos_remove" <component address> # Removes component. Response data is a boolean
 "kocos_passed" <component address> # Passed component.
 ```
+
+## libkvm and kvm
+
+`/lib/libkvm.so` will provide a convenient wrapper for the KVM system.
+`tools/kvm.lua` will be a simple script that uses `/lib/libkvm.so`.
