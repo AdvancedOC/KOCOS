@@ -122,39 +122,6 @@ function kelp.parse(data)
     return obj
 end
 
----@param object Build.KelpObject
----@return string
-function kelp.encode(object)
-    local s = "KELPv1\n"
-    s = s .. object.type
-
-    ---@type {[string]: string}
-    local moduleMap = {}
-
-    for module, data in pairs(object.modules) do
-        moduleMap[module] = data
-    end
-
-    if #object.dependencies > 0 then
-        moduleMap["@deps"] = table.concat(object.dependencies, "\n")
-    end
-
-    local sourceMap = {}
-    for module, source in pairs(object.sourceMaps) do
-        table.insert(sourceMap, module .. "=" .. source)
-    end
-
-    if #sourceMap > 0 then
-        moduleMap["@sourcemap"] = table.concat(sourceMap, "\n")
-    end
-
-    for module, data in pairs(moduleMap) do
-        s = s .. module .. "\n" .. toHex(#data) .. "\n" .. data
-    end
-
-    return s
-end
-
 KOCOS.kelp = kelp
 
 ---@alias KOCOS.ObjectLoader fun(code: string): Build.KelpObject
@@ -235,7 +202,7 @@ KOCOS.process.addLoader({
     load = function(proc, obj)
         ---@cast obj Build.KelpObject
         KOCOS.linkInProcess(proc, obj)
-        local start = proc.modules["_start"]
+        local start = assert(proc.modules["_start"], "missing _start")
         local startFile = proc.sources["_start"] or "_start"
         local f = assert(load(start, "=" .. startFile, nil, proc.namespace))
         proc:attach(f, "main")

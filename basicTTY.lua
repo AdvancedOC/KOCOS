@@ -155,25 +155,6 @@ function accept(fd)
     return clientfd, err
 end
 
-local logPid
-
-do
-    local attempt = assert(pnext())
-    while true do
-        local info = assert(pinfo(attempt))
-        if info.cmdline == "OS:logproc" then
-            logPid = attempt
-            break
-        end
-        attempt = pnext(attempt)
-        if not attempt then break end
-    end
-end
-
-assert(logPid, "log pid failed")
-
-syscall("pwait", logPid)
-
 local tty = _K.tty.create(_OS.component.gpu, _OS.component.screen)
 
 tty:clear()

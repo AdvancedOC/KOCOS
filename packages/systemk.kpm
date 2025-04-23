@@ -4,6 +4,6 @@
     version = "0.0.1",
     -- Compile on the fly lol
     postInstall = {
-        "lua tools/luac.lua -m main packages/systemk/init.lua -o /bin/init",
+        "lua tools/luac.lua -m main packages/systemk/init.lua -o /bin/init -l/lib/liblua.so",
     },
 }

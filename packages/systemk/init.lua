@@ -20,7 +20,7 @@ local process = require("process")
 local stepOrder = {"init", "shell", "services", "postservices"}
 
 local function allServices()
-    return io.list("/etc/systemk")
+    return io.list("/etc/systemk") or {}
 end
 
 local function fetchServiceInfo(service)
@@ -29,6 +29,10 @@ local function fetchServiceInfo(service)
     f:close()
     ---@type SystemK.Record
     local info = lon.decode(code)
+    info.args = info.args or {}
+    info.env = info.env or {}
+    info.dependencies = info.dependencies or {}
+    info.priority = info.priority or 100
     info.step = info.step or "services"
     return info
 end
@@ -54,6 +58,11 @@ local function runService(service)
     for _, dep in ipairs(record.dependencies) do
         runService(dep)
     end
+
+    assert(process.spawn(record.init, {
+        args = record.args,
+        env = record.env,
+    }))
 end
 
 local function runStep(step)
@@ -62,4 +71,12 @@ local function runStep(step)
             runService(service)
         end
     end
+end
+
+for _, step in ipairs(stepOrder) do
+    runStep(step)
+end
+
+while true do
+    coroutine.yield()
 end

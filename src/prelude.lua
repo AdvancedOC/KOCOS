@@ -19,13 +19,14 @@ KOCOS.allowGreenThreads = KOCOS.default(KOCOS_CONFIG.allowGreenThreads, true)
 -- insecure will overwrite the ring to 0 for all processes
 KOCOS.insecure = KOCOS.default(KOCOS_CONFIG.insecure, false)
 ---@type string?
-KOCOS.init = KOCOS.default(KOCOS_CONFIG.init, "/sbin/init.lua")
+KOCOS.init = KOCOS.default(KOCOS_CONFIG.init, "/bin/init")
 KOCOS.maxEventBacklog = KOCOS.default(KOCOS_CONFIG.maxEventBacklog, 256)
 KOCOS.rebootOnCrash = KOCOS.default(KOCOS_CONFIG.rebootOnCrash, true)
 KOCOS.logThreadEvents = KOCOS.default(KOCOS_CONFIG.logThreadEvents, false)
 KOCOS.selfTest = KOCOS.default(KOCOS_CONFIG.selfTest, computer.totalMemory() >= 2^19)
 KOCOS.syscallTraceback = KOCOS.default(KOCOS_CONFIG.syscallTraceback, false)
 KOCOS.hostname = KOCOS.default(KOCOS_CONFIG.hostname, "computer")
+KOCOS.loggingTTY = KOCOS.default(KOCOS_CONFIG.loggingTTY, true)
 
 KOCOS.version = "KOCOS incomplete"
 
@@ -41,11 +42,16 @@ local function oceLog(s)
     end
 end
 
+local tty
+
 function KOCOS.log(fmt, ...)
     local time = computer.uptime()
     local s = string.format(fmt, ...)
     KOCOS.event.push("klog", s, time)
     oceLog(s)
+    if tty then
+        tty:print("[LOG   %3.2f] %s\n", time, s)
+    end
 end
 
 function KOCOS.logPanic(fmt, ...)
@@ -53,6 +59,9 @@ function KOCOS.logPanic(fmt, ...)
     local s = string.format(fmt, ...)
     KOCOS.event.push("kpanic", s, time)
     oceLog("PANIC: " .. s)
+    if tty then
+        tty:print("[\x1b[31mPANIC\x1b[0m %3.2f] %s\n", time, s)
+    end
 end
 
 local deferred = {}
@@ -190,13 +199,25 @@ if 1<0 then
     function syscall(sys, ...) end
 end
 
+if KOCOS.loggingTTY then
+    KOCOS.defer(function()
+        tty = KOCOS.tty.create(component.gpu, component.screen)
+    end, math.huge)
+
+    KOCOS.defer(function()
+        KOCOS.log("Clearing log TTY")
+        tty:clear()
+        tty = nil
+    end, -math.huge)
+end
+
 if KOCOS.init then
     KOCOS.defer(function()
         KOCOS.log("Running " .. KOCOS.init)
         assert(KOCOS.process.spawn(KOCOS.init, {
             traced = true,
         }))
-    end, 0)
+    end, -math.huge)
 end
 
 local yield = coroutine.yield
