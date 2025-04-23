@@ -52,7 +52,7 @@ if #libs == 0 then
     end
 end
 
-local interp = "lua"
+local interp = os.getenv("LUA_INTERP") or "lua"
 if _OSVERSION == "KOCOS Demo" then
     if io.exists("luart") then interp = "luart" end
 end

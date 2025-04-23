@@ -339,10 +339,44 @@ function kvm.close(vm)
     end
 end
 
----@param vm KOCOS.KVM
--- Generic Virtual GPU
-function kvm.addVGPU(vm)
+local function color(r, g, b)
+    return r * 0x10000 + g * 0x100 + b
+end
 
+---@param vm KOCOS.KVM
+---@param slot? integer
+-- Generic Virtual GPU
+function kvm.addVGPU(vm, slot)
+    ---@type string?
+    local screen
+    local pallete = {
+        [0] = 0x000000, -- black
+        [1] = 0xFFFFFF, -- white
+        [2] = color(205, 49, 49), -- red
+        [3] = color(13, 188, 121), -- green
+        [4] = color(229, 229, 16), -- yellow
+        [5] = color(36, 114, 200), -- blue
+        [6] = color(188, 63, 188), -- magenta
+        [7] = color(17, 168, 205), -- cyan
+    }
+    return kvm.add(vm, {
+        type = "gpu",
+        slot = slot or -1,
+        close = function() end,
+        docs = {},
+        methods = {
+            ---@param address string
+            ---@param reset? boolean
+            bind = function(address, reset)
+                reset = KOCOS.default(reset, true)
+            end,
+            getScreen = function()
+                if not vm.components[screen] then screen = nil end
+                return screen
+            end,
+        },
+        internal = {},
+    })
 end
 
 ---@param vm KOCOS.KVM
