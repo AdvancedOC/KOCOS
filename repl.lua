@@ -4,7 +4,7 @@ local lon = require("lon")
 local io = require("io")
 
 print(_VERSION)
-print("Type exit to exit")
+print("Pres Ctrl + D (close stdin) to exit")
 
 local function printExpr(asExpr)
     local r = {asExpr()}
@@ -20,7 +20,7 @@ end
 while true do
     io.write("\x1b[34mlua> \x1b[0m")
     local code = io.read("l")
-    if code == "exit" then break end
+    if not code then break end
     if #code > 0 then
         local asExpr = load("return " .. code, "=repl")
         if asExpr then

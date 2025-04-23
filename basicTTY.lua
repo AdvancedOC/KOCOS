@@ -168,7 +168,7 @@ local commandStdinBuffer = ""
 local function readLine()
     while true do
         commandStdinBuffer = commandStdinBuffer .. assert(read(stdin, math.huge))
-        local lineEnd = commandStdinBuffer:find('%\n')
+        local lineEnd = commandStdinBuffer:find('[%\n%\4]')
         if lineEnd then
             local line = commandStdinBuffer:sub(1, lineEnd-1)
             commandStdinBuffer = commandStdinBuffer:sub(lineEnd+1)
@@ -1379,7 +1379,6 @@ while true do
             local lib = unicode or string
             local backspace = 0x0E
             local enter = 0x1C
-            local home = 0xC7
             if code == enter then
                 clear(stdin)
                 write(stdin, inputBuffer .. "\n")
@@ -1389,9 +1388,9 @@ while true do
                 local t = lib.sub(inputBuffer, -1)
                 tty:unwrite(t)
                 inputBuffer = lib.sub(inputBuffer, 1, -2)
-            elseif code == home then
+            elseif _K.keyboard.isKeyDown(_K.keyboard.keys.d) and _K.keyboard.isControlDown() then
                 clear(stdin)
-                write(stdin, inputBuffer .. string.byte(4))
+                write(stdin, inputBuffer .. string.char(4))
                 tty:write('\n')
                 inputBuffer = nil
             elseif not isEscape(char) then

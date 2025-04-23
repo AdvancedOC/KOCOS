@@ -3,7 +3,7 @@
 ---@alias KOCOS.FileSystemDriver table
 
 ---@class KOCOS.File
----@field mode "w"|"r"
+---@field mode "w"|"r"|"a"
 ---@field refc integer
 ---@field kind "disk"|"memory"|"pipe"
 ---@field events KOCOS.EventSystem
@@ -15,7 +15,7 @@
 
 ---@class KOCOS.MemoryFile: KOCOS.File
 ---@field kind "memory"
----@field buffer string
+---@field buffer? string
 ---@field bufcap integer
 ---@field cursor integer
 
@@ -72,7 +72,7 @@ function fs.resolve(path)
     return globalTranslation[""], path
 end
 
----@param mode "w"|"r"
+---@param mode "w"|"r"|"a"
 ---@param content? string
 ---@param maximum? integer
 ---@return KOCOS.MemoryFile
@@ -203,6 +203,7 @@ function fs.write(file, data)
         ---@cast file KOCOS.DiskFile
         return file.manager:write(file.fd, data)
     elseif file.kind == "memory" then
+        if file.buffer == nil then return false, "closed" end
         ---@cast file KOCOS.MemoryFile
         if file.mode == "w" then
             if (#file.buffer + #data) > file.bufcap then
@@ -234,6 +235,7 @@ function fs.read(file, len)
         ---@cast file KOCOS.DiskFile
         return file.manager:read(file.fd, len)
     elseif file.kind == "memory" then
+        if file.buffer == nil then return end
         ---@cast file KOCOS.MemoryFile
         if file.mode == "w" then
             if len < #file.buffer then
@@ -313,6 +315,13 @@ function fs.ioctl(file, action, ...)
         end
         if action == "fetch" then
             return file.buffer
+        end
+        if action == "close" then
+            -- If pipes wish to support binary mode,
+            -- You can't close them via End of Transmission,
+            -- thus you *have* to mark the memory file as closed.
+            file.buffer = nil
+            return
         end
     end
 
