@@ -358,6 +358,11 @@ function kvm.addVGPU(vm, slot)
         [5] = color(36, 114, 200), -- blue
         [6] = color(188, 63, 188), -- magenta
         [7] = color(17, 168, 205), -- cyan
+        [8] = color(85, 85, 85), -- bright black
+        [9] = color(229, 229, 229), -- darker white
+        [10] = color(255, 85, 85), -- bright red
+        [11] = color(85, 255, 85), -- bright green
+        [12] = color(85, 255, 85), -- bright yellow 
     }
     return kvm.add(vm, {
         type = "gpu",

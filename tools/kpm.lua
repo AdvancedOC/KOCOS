@@ -4,9 +4,11 @@
 
 local sys = require("syscalls")
 local lon = require("lon")
-local internetAddr = assert(sys.cprimary("internet"))
-printf("Using internet card %s...", internetAddr)
-local internet = assert(sys.cproxy(internetAddr))
+local internetAddr = sys.cprimary("internet")
+if internetAddr then
+    printf("Using internet card %s...", internetAddr)
+end
+local internet = sys.cproxy(internetAddr)
 
 -- Just makes a GET lol
 local function actuallyDownload(url)
