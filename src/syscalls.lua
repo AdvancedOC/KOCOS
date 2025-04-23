@@ -549,7 +549,7 @@ end
 ---@param pid? integer
 function syscalls.pnext(proc, pid)
     assert(type(pid) == "number" or pid == nil, "bad pid")
-    return next(KOCOS.process.procs, pid)
+    return (next(KOCOS.process.procs, pid))
 end
 
 ---@param pid integer

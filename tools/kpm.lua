@@ -25,6 +25,13 @@ local function actuallyDownload(url)
 end
 
 local function download(url)
+    if url:sub(1, 1) == "/" then
+        local f, err = io.open(url)
+        if not f then return nil, err end
+        local data = f:read("a")
+        f:close()
+        return data
+    end
     local ok, data = pcall(actuallyDownload, url)
     if ok then return data end
     return nil, data
@@ -39,6 +46,7 @@ end
 
 local function readFile(path)
     local f = assert(io.open(path, "r"))
+    f:setvbuf("no", math.huge)
     local data = f:read("a")
     f:close()
     return data
@@ -51,7 +59,8 @@ if action ~= "install" then
     error("unsupported action: " .. action)
 end
 
-local conf = lon.decode(readFile("/etc/kpm.conf"))
+local confCode = readFile("/etc/kpm.conf")
+local conf = lon.decode(confCode)
 
 local allPackages = {}
 local order = {}
@@ -61,13 +70,13 @@ local function queryPackageInfo(package)
     table.insert(order, package)
     printf("Searching for %s...", package)
     for _, repo in ipairs(conf.repos) do
-        if repo.type == "internet" then
+        if repo.type == "internet" or repo.type == "filesystem" then
             local f, err = download(repo.repo .. "/" .. package .. ".kpm")
             if f and #f > 0 and lon.decode(f) then
                 local info = lon.decode(f)
                 info.url = repo.repo
                 allPackages[package] = info
-                for _, dep in ipairs(info.dependencies) do
+                for _, dep in ipairs(info.dependencies or {}) do
                     queryPackageInfo(dep)
                 end
                 return
@@ -106,7 +115,7 @@ local function installPackage(info)
     }
     ]]
     printf("Installing %s v%s...", info.name, info.version)
-    for fullPath, remotePath in pairs(info.files) do
+    for fullPath, remotePath in pairs(info.files or {}) do
         printf("Downloading %s...", remotePath)
         local url = info.url .. "/" .. remotePath
         local data = assert(download(url))
@@ -116,6 +125,10 @@ local function installPackage(info)
         f:write(data)
         f:close()
     end
+    for _, extraFile in ipairs(info.extraFiles or {}) do
+        ensureParent(extraFile)
+    end
+    info.postInstall = info.postInstall or {}
     if #info.postInstall > 0 then
         print("Running post install scripts...")
         for _, cmd in ipairs(info.postInstall) do

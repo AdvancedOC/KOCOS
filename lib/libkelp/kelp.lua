@@ -147,7 +147,14 @@ function kelp.encode(object)
         moduleMap["@sourcemap"] = table.concat(sourceMap, "\n")
     end
 
-    for module, data in pairs(moduleMap) do
+    local mods = {}
+    for module in pairs(moduleMap) do
+        table.insert(mods, module)
+    end
+    table.sort(mods)
+
+    for _, module in ipairs(mods) do
+        local data = moduleMap[module]
         s = s .. module .. "\n" .. toHex(#data) .. "\n" .. data
     end
 

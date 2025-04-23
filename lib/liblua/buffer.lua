@@ -211,7 +211,7 @@ function buffer:write(...)
         s = s:sub(chunkSize+1)
         local ok, err = self:putchunk(chunk)
         if not ok then return ok, err end
-        -- no yield, just don't write 4 TB at once
+        coroutine.yield()
     end
     return true, ""
 end

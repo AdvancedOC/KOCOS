@@ -1,0 +1,13 @@
+{
+    name = "kocos",
+    author = "Quantum Tomato",
+    version = "0.0.1",
+    files = {},
+    extraFiles = {
+        "boot/kernel.lua",
+    },
+    postInstall = {
+        "lua build.lua",
+        --"cp kernel.lua boot/kernel.lua",
+    },
+}

@@ -3,3 +3,6 @@ run_ocelot.sh
 # KELP stuff
 *.o
 *.so
+# Stuff I installed with kpm lol
+/bin
+/boot
