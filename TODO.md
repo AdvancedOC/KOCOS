@@ -8,7 +8,6 @@ Fully supports async I/O.
 
 `terminal` to provide an API around escape codes.
 `keyboard` to provide keyboard codes.
-`component` to provide convenient wrappers around the component syscalls.
 `socket` to provide convenient wrappers around sockets.
 
 # Audio System
