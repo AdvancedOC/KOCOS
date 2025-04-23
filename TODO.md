@@ -1,8 +1,3 @@
-# Depracate and eradicate OS:logproc
-
-Kernel should make a TTY, log to it, and clear it once init is ran.
-Cuz the current boot process is dogwater
-
 # Radio sockets
 
 "radio" protocol, with "packet" subprotocol.
