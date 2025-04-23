@@ -62,6 +62,7 @@ function buffer:flush()
     if ok then
         self.buffer = ""
     end
+    coroutine.yield()
     return ok, err
 end
 
@@ -211,7 +212,6 @@ function buffer:write(...)
         s = s:sub(chunkSize+1)
         local ok, err = self:putchunk(chunk)
         if not ok then return ok, err end
-        coroutine.yield()
     end
     return true, ""
 end

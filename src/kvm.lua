@@ -339,31 +339,19 @@ function kvm.close(vm)
     end
 end
 
-local function color(r, g, b)
-    return r * 0x10000 + g * 0x100 + b
-end
-
 ---@param vm KOCOS.KVM
 ---@param slot? integer
 -- Generic Virtual GPU
+-- Palettes are completely unsupported currently
+-- So are VRAM buffers
 function kvm.addVGPU(vm, slot)
     ---@type string?
     local screen
-    local pallete = {
-        [0] = 0x000000, -- black
-        [1] = 0xFFFFFF, -- white
-        [2] = color(205, 49, 49), -- red
-        [3] = color(13, 188, 121), -- green
-        [4] = color(229, 229, 16), -- yellow
-        [5] = color(36, 114, 200), -- blue
-        [6] = color(188, 63, 188), -- magenta
-        [7] = color(17, 168, 205), -- cyan
-        [8] = color(85, 85, 85), -- bright black
-        [9] = color(229, 229, 229), -- darker white
-        [10] = color(255, 85, 85), -- bright red
-        [11] = color(85, 255, 85), -- bright green
-        [12] = color(85, 255, 85), -- bright yellow 
-    }
+    ---@return table
+    local function getScreenFuncs()
+        local c = assert(vm.components[screen], "not bound to screen")
+        return c.internal.vgpu
+    end
     return kvm.add(vm, {
         type = "gpu",
         slot = slot or -1,
@@ -374,10 +362,106 @@ function kvm.addVGPU(vm, slot)
             ---@param reset? boolean
             bind = function(address, reset)
                 reset = KOCOS.default(reset, true)
+                local c = assert(vm.components[address], "no such component")
+                local vgpu = assert(c.internal.vgpu, "incompatible")
+                if reset then vgpu.reset() end
+                return true
             end,
             getScreen = function()
                 if not vm.components[screen] then screen = nil end
                 return screen
+            end,
+            getBackground = function()
+                local vgpu = getScreenFuncs()
+                return vgpu.getBackground(), false
+            end,
+            setBackground = function(color, isPaletteIndex)
+                checkArg(1, color, "number")
+                assert(not isPaletteIndex, "palettes are unsupported")
+                local vgpu = getScreenFuncs()
+                local old = vgpu.getBackground()
+                vgpu.setBackground(color)
+                return old
+            end,
+            getForeground = function()
+                local vgpu = getScreenFuncs()
+                return vgpu.getForeground(), false
+            end,
+            setForeground = function(color, isPaletteIndex)
+                checkArg(1, color, "number")
+                assert(not isPaletteIndex, "palettes are unsupported")
+                local vgpu = getScreenFuncs()
+                local old = vgpu.getForeground()
+                vgpu.setForeground(color)
+                return old
+            end,
+            maxDepth = function()
+                return getScreenFuncs().maxDepth()
+            end,
+            getDepth = function()
+                return getScreenFuncs().getDepth()
+            end,
+            setDepth = function(depth)
+                checkArg(1, depth, "number")
+                local vgpu = getScreenFuncs()
+                local old = vgpu.getDepth()
+                vgpu.setDepth(depth)
+                local t = {
+                    [1] = "OneBit",
+                    [4] = "FourBit",
+                    [8] = "EightBit",
+                }
+                return t[old] or "OtherBit"
+            end,
+            maxResolution = function()
+                return getScreenFuncs().maxResolution()
+            end,
+            getResolution = function()
+                return getScreenFuncs().getResolution()
+            end,
+            setResolution = function(w, h)
+                checkArg(1, w, "number")
+                checkArg(2, h, "number")
+                getScreenFuncs().setResolution(w, h)
+                return true
+            end,
+            getViewport = function()
+                return getScreenFuncs().getResolution()
+            end,
+            setViewport = function(w, h)
+                checkArg(1, w, "number")
+                checkArg(2, h, "number")
+                getScreenFuncs().setResolution(w, h)
+                return true
+            end,
+            get = function(x, y)
+                checkArg(1, x, "number")
+                checkArg(2, y, "number")
+                return getScreenFuncs().get(x, y)
+            end,
+            set = function(x, y, value, vertical)
+                checkArg(1, x, "number")
+                checkArg(2, y, "number")
+                checkArg(3, value, "string")
+                checkArg(4, vertical, "boolean", "nil")
+                return getScreenFuncs().set(x, y, value, vertical)
+            end,
+            copy = function(x, y, w, h, tx, ty)
+                checkArg(1, x, "number")
+                checkArg(2, y, "number")
+                checkArg(3, w, "number")
+                checkArg(4, h, "number")
+                checkArg(5, tx, "number")
+                checkArg(6, ty, "number")
+                return getScreenFuncs().copy(x, y, w, h, tx, ty)
+            end,
+            fill = function(x, y, w, h, c)
+                checkArg(1, x, "number")
+                checkArg(2, y, "number")
+                checkArg(3, w, "number")
+                checkArg(4, h, "number")
+                checkArg(5, c, "string")
+                return getScreenFuncs().fill(x, y, w, h, c)
             end,
         },
         internal = {},
@@ -402,6 +486,44 @@ function kvm.forget(vm, event)
     local handler = vm.eventsListened[event]
     vm.eventsListened[event] = nil
     KOCOS.event.forget(handler)
+end
+
+---@type {[string]:fun(proc: KOCOS.Process, vm: KOCOS.KVM, ...): ...}
+kvm.ioctl = {}
+
+function kvm.ioctl.add(proc, vm, vcomp)
+    return kvm.add(vm, vcomp)
+end
+
+function kvm.ioctl.addVGPU(proc, vm, slot)
+    return kvm.addVGPU(vm, slot)
+end
+
+function kvm.ioctl.pass(proc, vm, addr)
+    if component.ringFor(addr) < proc.ring then
+        error("permission denied")
+    end
+    return kvm.passthrough(vm, addr)
+end
+
+function kvm.ioctl.listen(proc, vm, ...)
+    assert(proc.ring <= 1, "permission denied")
+    local n = select("#", ...)
+    for i=1, n do
+        local v = select(i, ...)
+        local s = tostring(v)
+        kvm.listen(vm, s)
+    end
+end
+
+function kvm.ioctl.forget(proc, vm, ...)
+    assert(proc.ring <= 1, "permission denied")
+    local n = select("#", ...)
+    for i=1, n do
+        local v = select(i, ...)
+        local s = tostring(v)
+        kvm.forget(vm, s)
+    end
 end
 
 KOCOS.kvm = kvm

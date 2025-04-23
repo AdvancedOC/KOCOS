@@ -151,6 +151,26 @@ function syscalls.socket(proc, protocol, subprotocol, config)
     error(fd)
 end
 
+function syscalls.kvmopen(proc, name)
+    assert(type(name) == "string" or type(name) == "nil", "bad name")
+    local vm = assert(KOCOS.kvm.open(name))
+
+    ---@type KOCOS.KVMResource
+    local res = {
+        kind = "vm",
+        vm = vm,
+        rc = 1,
+    }
+
+    local ok, fd = pcall(KOCOS.process.moveResource, proc, res)
+    if ok then
+        return fd
+    end
+
+    KOCOS.kvm.close(res.vm)
+    error(fd)
+end
+
 ---@param address string
 ---@param protocol? string
 function syscalls.getaddrinfo(proc, address, protocol)
@@ -349,10 +369,15 @@ function syscalls.ioctl(proc, fd, action, ...)
     if res.kind == "file" then
         ---@cast res KOCOS.FileResource
         return KOCOS.fs.ioctl(res.file, action, ...)
-    end
-    if res.kind == "socket" then
+    elseif res.kind == "socket" then
         ---@cast res KOCOS.SocketResource
         return KOCOS.network.ioctl(res.socket, action, ...)
+    elseif res.kind == "vm" then
+        ---@cast res KOCOS.KVMResource
+        local vm = res.vm
+        local f = KOCOS.kvm.ioctl[action]
+        assert(f, "unsupported")
+        return f(proc, vm, ...)
     end
 
     error("bad file descriptor")

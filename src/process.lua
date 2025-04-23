@@ -118,7 +118,7 @@ end
 
 KOCOS.thread = thread
 
----@alias KOCOS.ResourceKind "file"|"lock"|"event"|"socket"
+---@alias KOCOS.ResourceKind "file"|"lock"|"event"|"socket"|"vm"
 
 ---@class KOCOS.Resource
 ---@field kind KOCOS.ResourceKind
@@ -139,6 +139,11 @@ KOCOS.thread = thread
 ---@field kind "socket"
 ---@field rc integer
 ---@field socket KOCOS.NetworkSocket
+
+---@class KOCOS.KVMResource: KOCOS.Resource
+---@field kind "vm"
+---@field rc integer
+---@field vm KOCOS.KVM
 
 ---@class KOCOS.Process
 ---@field ring number
@@ -422,6 +427,12 @@ function process.closeResource(resource)
         resource.rc = resource.rc - 1
         if resource.rc <= 0 then
             KOCOS.network.close(resource.socket)
+        end
+    elseif resource.kind == "socket" then
+        ---@cast resource KOCOS.KVMResource
+        resource.rc = resource.rc - 1
+        if resource.rc <= 0 then
+            KOCOS.kvm.close(resource.vm)
         end
     end
 end
