@@ -350,7 +350,7 @@ end
 
 function devfs:permissionsOf()
     -- Root-only
-    return KOCOS.perms.encode(0, KOCOS.perms.BIT_RW, KOCOS.perms.ID_ALL, KOCOS.perms.BIT_READABLE)
+    return KOCOS.perms.encode(0, KOCOS.perms.BIT_RW, KOCOS.perms.ID_ALL, 0)
 end
 
 KOCOS.fs.addDriver(devfs)

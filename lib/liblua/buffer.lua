@@ -142,7 +142,7 @@ function buffer:readSingle(r)
             local c = self:getchunk()
             if not c then break end
             data = data .. c
-            if #data == r then break end
+            if #data >= r then break end
             coroutine.yield()
         end
         if #data == 0 then return end
