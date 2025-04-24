@@ -1,10 +1,9 @@
 -- Lua REPL
-local sys = require("syscalls")
 local lon = require("lon")
 local io = require("io")
 
 print(_VERSION)
-print("Pres Ctrl + D (close stdin) to exit")
+print("Press Ctrl + D (close stdin) to exit")
 
 local function printExpr(asExpr)
     local r = {asExpr()}

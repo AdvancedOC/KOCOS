@@ -134,19 +134,6 @@ function KOCOS.addObjectLoader(loader)
     table.insert(KOCOS.objectLoaders, loader)
 end
 
----@param path string
-function KOCOS.readFile(path)
-    local f = assert(KOCOS.fs.open(path, "r"))
-    local data = ""
-    while true do
-        local chunk, err = KOCOS.fs.read(f, math.huge)
-        if err then KOCOS.fs.close(f) error(err) end
-        if not chunk then break end
-        data = data .. chunk
-    end
-    KOCOS.fs.close(f)
-    return data
-end
 
 -- TODO: clear it from time to time
 local cache = {}
@@ -183,7 +170,7 @@ function KOCOS.linkInProcess(proc, obj)
             if not KOCOS.fs.exists(dep) then error("Missing " .. dep) end
             if not loaded[dep] then
                 loaded[dep] = true
-                local code = KOCOS.readFile(dep)
+                local code = KOCOS.readFileCached(dep)
                 local depObj = assert(KOCOS.loadObject(code), "bad dependency: " .. dep)
                 addModulesToProcess(depObj)
             end

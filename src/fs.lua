@@ -597,6 +597,38 @@ end
 
 KOCOS.fs = fs
 
+---@param path string
+function KOCOS.readFile(path)
+    local f = assert(fs.open(path, "r"))
+    local data = ""
+    while true do
+        local chunk, err = fs.read(f, math.huge)
+        if err then fs.close(f) error(err) end
+        if not chunk then break end
+        data = data .. chunk
+    end
+    fs.close(f)
+    return data
+end
+
+local readCache = {}
+
+---@param path string
+-- May not always be accurate!
+-- Intended to be used for dynamically linked libraries
+---@return string
+function KOCOS.readFileCached(path)
+    if readCache[path] then
+        local s = fs.size(path)
+        if s ~= #readCache[path] then
+            readCache[path] = KOCOS.readFile(path)
+        end
+    else
+        readCache[path] = KOCOS.readFile(path)
+    end
+    return readCache[path]
+end
+
 KOCOS.log("Loaded filesystem")
 
 KOCOS.defer(function()

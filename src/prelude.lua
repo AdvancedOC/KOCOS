@@ -202,6 +202,7 @@ end
 if KOCOS.loggingTTY then
     KOCOS.defer(function()
         tty = KOCOS.tty.create(component.gpu, component.screen)
+        tty:clear()
     end, math.huge)
 end
 

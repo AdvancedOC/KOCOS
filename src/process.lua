@@ -456,18 +456,7 @@ end
 
 process.addLoader({
     check = function (proc, path)
-        local f = assert(KOCOS.fs.open(path, "r"))
-        local data = ""
-        while true do
-            local chunk, err = KOCOS.fs.read(f, math.huge)
-            if err then
-                KOCOS.fs.close(f)
-                error(err)
-            end
-            if not chunk then break end
-            data = data .. chunk
-        end
-        KOCOS.fs.close(f)
+        local data = KOCOS.readFile(path)
         local fun = load(data, "=" .. (proc.args[0] or path), "bt", proc.namespace)
         return fun ~= nil, fun
     end,
