@@ -648,4 +648,10 @@ KOCOS.defer(function()
     assert(rootPart, "missing root partition on " .. root)
     globalTranslation[""] = assert(fs.driverFor(rootPart), "MISSING ROOTFS DRIVER OH NO")
     KOCOS.log("Mounted default root")
+
+    if not fs.exists("/tmp") then assert(fs.mkdir("/tmp")) end
+    local tmpfs = component.proxy(computer.tmpAddress())
+    local partitions = fs.getPartitions(tmpfs)
+    fs.mount("/tmp", partitions[1])
+    KOCOS.log("Mounted tmpfs")
 end, 3)
