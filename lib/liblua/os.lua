@@ -67,3 +67,5 @@ function os.execute(command)
     p:forceKill()
     return e == 0, "exit", e
 end
+
+return os

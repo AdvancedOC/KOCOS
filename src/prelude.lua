@@ -28,6 +28,10 @@ KOCOS.syscallTraceback = KOCOS.default(KOCOS_CONFIG.syscallTraceback, false)
 KOCOS.hostname = KOCOS.default(KOCOS_CONFIG.hostname, "computer")
 KOCOS.loggingTTY = KOCOS.default(KOCOS_CONFIG.loggingTTY, true)
 
+-- Not working lmao
+KOCOS.sharedStorage = KOCOS.default(KOCOS_CONFIG.sharedStorage, false)
+KOCOS.trulyIndependentSyscalls = KOCOS.default(KOCOS_CONFIG.trulyIndependentSyscalls, not KOCOS.sharedStorage)
+
 KOCOS.version = "KOCOS incomplete"
 
 function KOCOS.logAll(...)
@@ -193,6 +197,7 @@ if 1<0 then
     _OS = _G
     _OSVERSION = "Unknown KOCOS"
     _KVERSION = KOCOS.version
+    _SHARED = {}
 
     ---@param sys string
     ---@return ...

@@ -654,7 +654,7 @@ function syscalls.pexit(proc, pid)
 end
 
 function syscalls.pspawn(proc, init, config)
-    assert(type(init) == "string", "bad init path")
+    assert(type(init) == "string" or type(init) == nil, "bad init path")
     assert(type(config) == "table", "bad config")
     local data = {
         ring = config.ring or proc.ring,
@@ -705,7 +705,11 @@ function syscalls.pspawn(proc, init, config)
         end
         KOCOS.process.retainResource(res)
     end
-    proc.children[child.pid] = child
+    local ok, err = pcall(rawset, proc.children, child.pid, child)
+    if not ok then
+        child:kill()
+        error(err)
+    end
     return child.pid
 end
 

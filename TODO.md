@@ -189,3 +189,32 @@ filesystem.mount(uuid, "/etc/stuff")
 
 `/lib/libkvm.so` will provide a convenient wrapper for the KVM system.
 `tools/kvm.lua` will be a simple script that uses `/lib/libkvm.so`.
+
+# Ridiculous memory shrinking
+
+A lot of RAM optimizations to be made, such as:
+- _SHARED and shared storage between processes (liblua can use that to recycle stuff)
+- Shared `syscall`. Instead, a global `Context` is made to store the current thread.
+- Threads stored in a linked list, with new ones inserted at the start.
+- Lazily created interrupt queue. Created when listeners get made.
+
+## New syscalls to circumvent new challenges
+
+### klisten and kforget
+
+Add a listener to kernel events
+```lua
+local l = klisten(function()
+    
+end)
+
+-- continue running
+
+kforget(l) -- also ran automatically by the kernel
+```
+
+### Note on drivers
+
+The context is not switched when a driver runs. Thus, any syscalls they do are in the context of the caller.
+The caller can be very unexpected.
+If contexts were temporarily switched, it'd be a security hole.

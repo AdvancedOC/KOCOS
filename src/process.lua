@@ -103,6 +103,7 @@ function thread:tick()
     if thread:dead() then return end
     if thread:suspended() then return end
     if computer.uptime() < self.nextTime then return end
+    KOCOS.process.current = thread.process
     local ok, val = KOCOS.resume(self.coro)
     if ok then
         if type(val) == "number" then
@@ -167,6 +168,7 @@ process.__index = process
 
 ---@type {[integer]: KOCOS.Process}
 process.procs = {}
+process.current = 0
 process.lpid = 0
 
 ---@type KOCOS.Thread[]
@@ -191,6 +193,59 @@ local function trimLoc(err)
     return err:gsub("[^:]+:[^:]+:%s", "", 1)
 end
 
+local shared = KOCOS.sharedStorage and {}
+
+local _namespaceCache
+---@return _G
+local function getCoreNamespace()
+    -- caching here is a security oversight we have accepted
+    -- because RAM is more important than security for these people
+    if _namespaceCache then return _namespaceCache end
+    local namespace = {}
+
+    if KOCOS.allowGreenThreads then
+        namespace.coroutine = table.copy(coroutine)
+    else
+        namespace.coroutine = {
+            yield = coroutine.yield,
+        }
+    end
+
+    namespace._VERSION = _VERSION
+    namespace._OSVERSION = _OSVERSION or "Unknown KOCOS"
+    namespace._KVERSION = KOCOS.version
+    namespace._SHARED = shared
+    namespace.assert = assert
+    namespace.error = error
+    namespace.getmetatable = getmetatable
+    namespace.ipairs = ipairs
+    namespace.next = next
+    namespace.pairs = pairs
+    namespace.pcall = pcall
+    namespace.rawequal = rawequal
+    namespace.rawget = rawget
+    namespace.rawset = rawset
+    namespace.rawlen = rawlen
+    namespace.select = select
+    namespace.setmetatable = setmetatable
+    namespace.tonumber = tonumber
+    namespace.tostring = tostring
+    namespace.type = type
+    namespace.xpcall = xpcall
+    namespace.bit32 = bit32
+    namespace.table = table
+    namespace.string = string
+    namespace.math = math
+    namespace.debug = debug
+    namespace.os = os
+    namespace.checkArg = checkArg
+    namespace.unicode = unicode
+    namespace.utf8 = utf8
+
+    _namespaceCache = namespace
+    return namespace
+end
+
 local function rawSpawn(init, config)
     config = config or {}
 
@@ -205,19 +260,20 @@ local function rawSpawn(init, config)
     local proc = setmetatable({}, process)
     proc.traced = not not config.traced
 
-    local namespace = {}
+    local namespace = setmetatable({}, {
+        __index = getCoreNamespace(),
+    })
 
-    if KOCOS.allowGreenThreads then
-        namespace.coroutine = table.copy(coroutine)
-    else
-        namespace.coroutine = {
-            yield = coroutine.yield,
-        }
-    end
     local syscall = function(name, ...)
         local sys = KOCOS.syscalls[name]
         if not sys then return "bad syscall" end
-        local t = {xpcall(sys, KOCOS.syscallTraceback and debug.traceback or trimLoc, proc, ...)}
+        local p = proc
+        if not KOCOS.trulyIndependentSyscalls then
+            p = process.procs[process.current]
+            KOCOS.logAll("process.current", process.current)
+            assert(p, "current process is corrupted")
+        end
+        local t = {xpcall(sys, KOCOS.syscallTraceback and debug.traceback or trimLoc, p, ...)}
         if t[1] then
             return nil, table.unpack(t, 2)
         else
@@ -247,38 +303,9 @@ local function rawSpawn(init, config)
     end
     namespace.arg = table.copy(args)
     namespace._G = namespace
-    namespace._VERSION = _VERSION
-    namespace._OSVERSION = _OSVERSION or "Unknown KOCOS"
-    namespace._KVERSION = KOCOS.version
-    namespace.assert = assert
-    namespace.error = error
-    namespace.getmetatable = getmetatable
-    namespace.ipairs = ipairs
     namespace.load = function(code, name, kind, _G)
         return load(code, name, kind, _G or namespace)
     end
-    namespace.next = next
-    namespace.pairs = pairs
-    namespace.pcall = pcall
-    namespace.rawequal = rawequal
-    namespace.rawget = rawget
-    namespace.rawset = rawset
-    namespace.rawlen = rawlen
-    namespace.select = select
-    namespace.setmetatable = setmetatable
-    namespace.tonumber = tonumber
-    namespace.tostring = tostring
-    namespace.type = type
-    namespace.xpcall = xpcall
-    namespace.bit32 = table.copy(bit32)
-    namespace.table = table.copy(table)
-    namespace.string = table.copy(string)
-    namespace.math = table.copy(math)
-    namespace.debug = table.copy(debug)
-    namespace.os = table.copy(os)
-    namespace.checkArg = checkArg
-    namespace.unicode = table.copy(unicode)
-    namespace.utf8 = table.copy(utf8)
 
     proc.pid = pid
     proc.parent = config.parent

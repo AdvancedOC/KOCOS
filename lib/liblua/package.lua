@@ -15,7 +15,18 @@ package.loaded = {
 }
 ---@module "lib.liblua.syscalls"
 local sys = assert(loadModule("syscalls"))()
-package.loaded.sys = sys
+package.loaded.sys = sys -- can't be shared
+
+if _SHARED then
+    if not _SHARED.package_loaded then
+        _SHARED.package_loaded = {}
+    end
+    setmetatable(package.loaded, {
+        __index = _SHARED.package_loaded,
+        __newindex = _SHARED.package_loaded,
+    })
+end
+
 ---@type {[string]: {data: string, file: string}}
 package.modules = {}
 package.preload = {}
@@ -49,9 +60,13 @@ function package.searchpath(name, path, sep, rep)
     return nil, "not found"
 end
 
+local allowDupes = {
+    base = true,
+}
+
 ---@parma modname string
 function require(modname)
-    if package.loaded[modname] then return package.loaded[modname] end
+    if package.loaded[modname] and not allowDupes[modname] then return package.loaded[modname] end
     for _, searcher in ipairs(package.searchers) do
         local loader, data = searcher(modname)
         if loader then
@@ -115,12 +130,17 @@ end)
 
 -- The entire runtime
 require("base")
-require("io")
-require("os")
-require("component")
+io=require("io")
+os=require("os")
+component=require("component")
 
-local ok, err = xpcall(require, debug.traceback, "main")
+local f = assert(loadModule("main"))
+
+local ok, err = xpcall(f, debug.traceback, ...)
 if not ok then
+    if _K then
+        _K.log("Error: %s\n", err)
+    end
     sys.write(2, err .. "\n")
     sys.exit(1)
 end
