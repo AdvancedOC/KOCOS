@@ -28,7 +28,7 @@ local SLASH_BYTE = string.byte('/')
 local function readUintLE(bytes, off, len)
     local n = 0
     for i=1,len do
-        local x = bytes:sub(off+i, off+i)
+        local x = bytes:byte(off+i, off+i)
         n = n + x * (256 ^ (i - 1))
     end
     return n
@@ -124,7 +124,7 @@ local function partsOf(path)
     if path:byte(1, 1) == SLASH_BYTE then path = path:sub(2) end
     -- We use Lua stateless iters cuz we fancy
     -- Also saves memory
-    return partsIter, path
+    return partsIter, path, path
 end
 
 function okffs.check(partition)

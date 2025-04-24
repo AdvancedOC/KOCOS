@@ -327,7 +327,7 @@ function fs.ioctl(file, action, ...)
 
     if file.kind == "disk" then
         ---@cast file KOCOS.DiskFile
-        return file.manager:ioctl(file.fd, ...)
+        return file.manager:ioctl(file.fd, action, ...)
     end
 
     error("bad file")

@@ -57,7 +57,11 @@ function sys.seek(fd, whence, off)
 end
 
 function sys.ioctl(fd, action, ...)
-    return syscall("ioctl", fd, action, ...)
+    local t = {syscall("ioctl", fd, action, ...)}
+    if t[1] then
+        return nil, t[1]
+    end
+    return table.unpack(t, 2)
 end
 
 function sys.ftype(path)

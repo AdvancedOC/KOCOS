@@ -28,6 +28,9 @@ KOCOS.syscallTraceback = KOCOS.default(KOCOS_CONFIG.syscallTraceback, false)
 KOCOS.hostname = KOCOS.default(KOCOS_CONFIG.hostname, "computer")
 KOCOS.loggingTTY = KOCOS.default(KOCOS_CONFIG.loggingTTY, true)
 
+KOCOS.eventOnLog = KOCOS.default(KOCOS_CONFIG.eventOnLog, false)
+KOCOS.eventOnPanic = KOCOS.default(KOCOS_CONFIG.eventOnPanic, false)
+
 -- Not working lmao
 KOCOS.sharedStorage = KOCOS.default(KOCOS_CONFIG.sharedStorage, false)
 KOCOS.trulyIndependentSyscalls = KOCOS.default(KOCOS_CONFIG.trulyIndependentSyscalls, not KOCOS.sharedStorage)
@@ -51,7 +54,9 @@ local tty
 function KOCOS.log(fmt, ...)
     local time = computer.uptime()
     local s = string.format(fmt, ...)
-    KOCOS.event.push("klog", s, time)
+    if KOCOS.eventOnLog then
+        KOCOS.event.push("klog", s, time)
+    end
     oceLog(s)
     if tty then
         tty:print("[LOG   %3.2f] %s\n", time, s)
@@ -61,7 +66,9 @@ end
 function KOCOS.logPanic(fmt, ...)
     local time = computer.uptime()
     local s = string.format(fmt, ...)
-    KOCOS.event.push("kpanic", s, time)
+    if KOCOS.eventOnPanic then
+        KOCOS.event.push("kpanic", s, time)
+    end
     oceLog("PANIC: " .. s)
     if tty then
         tty:print("[\x1b[31mPANIC\x1b[0m %3.2f] %s\n", time, s)

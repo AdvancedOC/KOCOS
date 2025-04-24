@@ -10,6 +10,8 @@ Fully supports async I/O.
 `keyboard` to provide keyboard codes.
 `socket` to provide convenient wrappers around sockets.
 
+We gotta complete `syscalls` too
+
 # Audio System
 > KOCOS.audio
 
@@ -28,10 +30,25 @@ Notes that should be supported:
 - snare
 - xylophone
 
+# Visible TTY cursor
+
+The current TTY feels like dogwater
+
+# Complete devfs
+
+`/dev/eeprom` and `/dev/eeprom-data`
+
+Ability to actually use the damn thing.
+
 # Chown syscall
 
 A simple syscall to change a permission at a path.
 Requires write permissions for that path.
+
+# Fix okffs_ro
+
+It appears the portable OKFFS implementation is broken.
+Lets fix that with a controlled shock.
 
 # OKFFS mode changes
 

@@ -845,6 +845,7 @@ function syscalls.ctype(proc, addr)
 end
 
 function syscalls.cprimary(proc, kind, exact)
+    exact = KOCOS.default(exact, true)
     local filtered = {}
     for addr in component.list(kind, exact) do
         if (proc.ring <= component.ringFor(addr)) or all then

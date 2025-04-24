@@ -64,6 +64,7 @@ local perms = {}
 
 perms.BIT_WRITABLE = 1
 perms.BIT_READABLE = 2
+perms.BIT_RW = 3
 perms.ID_BITS = 6
 perms.ID_ALL = 2^perms.ID_BITS - 1
 

@@ -145,6 +145,7 @@ function buffer:readSingle(r)
             if #data == r then break end
             coroutine.yield()
         end
+        if #data == 0 then return end
         self:savechunk(data:sub(r+1))
         return data:sub(1, r)
     end
