@@ -103,14 +103,22 @@ local function readBuffer(addr, off, limit)
     if proxy.type == "drive" then
         local capacity = proxy.getCapacity()
         local left = math.min(limit, capacity-off)
+        local sectorSize = proxy.getSectorSize()
         while left > 0 do
-            local b, err = proxy.readByte(off+1)
-            if err then KOCOS.logAll("drive byte err", err) end
-            assert(b, err)
-            if b < 0 then b = b + 256 end
-            s = s .. string.char(b)
-            off = off + 1
-            left = left - 1
+            if (left >= sectorSize) and ((off / sectorSize) == math.floor(off / sectorSize)) then
+                local sector = math.floor(off / sectorSize)
+                local data = assert(proxy.readSector(sector+1))
+                s = s .. data
+                off = off + sectorSize
+                left = left - sectorSize
+            else
+                local b, err = proxy.readByte(off+1)
+                assert(b, err)
+                if b < 0 then b = b + 256 end
+                s = s .. string.char(b)
+                off = off + 1
+                left = left - 1
+            end
         end
     end
 

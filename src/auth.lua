@@ -21,7 +21,7 @@ function auth.listUsers(group)
 end
 
 ---@param user integer
----@return {name: string, groups: integer[], hasPassword: boolean}?
+---@return {name: string, groups: integer[], hasPassword: boolean}|table?
 function auth.userInfo(user)
     if user ~= 0 then return end
     return {
