@@ -82,9 +82,16 @@ event = function(maximum)
         else
             for i=#buffer,1,-1 do
                 for _, e in ipairs(t) do
-                    if e == buffer[i][1] then
-                        table.remove(buffer, i)
-                        break
+                    if type(e) == "function" then
+                        if e(table.unpack(buffer[i])) then
+                            table.remove(buffer, i)
+                            break
+                        end
+                    else
+                        if e == buffer[i][1] then
+                            table.remove(buffer, i)
+                            break
+                        end
                     end
                 end
             end
