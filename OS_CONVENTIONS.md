@@ -104,6 +104,7 @@ directories, in which case they should be deleted recursively. Optional. Default
 - `keepFiles`, a list of *full* paths to keep after uninstalling. Optional. Defaults to no kept files.
 - `dependencies`, a list of packages to install as dependencies. Only package names are specified, and are queried through all repositories.
 They should be installed before this package. Optional. Defaults to no dependencies.
+- `addons`, a list of packages to *optionally* install, as dependencies. They may be rejected by the user.
 - `postInstall`, a list of shell commands to `os.execute` after a first-install.
 - `postUpdate`, a list of shell commands to `os.execute` after an update, but not on a first-install.
 - `cleanup`, a list of shell commands to `os.execute` when the package is uninstalled, BEFORE any files are removed.
