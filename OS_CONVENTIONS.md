@@ -5,6 +5,7 @@ Because of this, the software should know what to expect.
 
 This document covers how an OS should be structured and to some extent work, such that software knows what to expect.
 The kernel doesn't enforce much, and thus it isn't impossible to go against these conventions, but doing so may break some software.
+It also covers how KPM's packages and repositories work, though the *exact* implementation details remain undefined.
 
 Do note that the demo OS does not respect many of these conventions, this is because it is not meant to run most software.
 If an OS does not need to run most software, not even via terminal emulators, then it can go against these conventions, as it
@@ -32,6 +33,8 @@ even if the path is `/bin/sh`, though if it is absent, programs can assume it is
 - `/etc` should contain configs and records to configure how the system works.
 - `/usr/bin` should contain extra binaries. These are not required for the system to boot but can still be used as normal commands.
 - `/usr/lib` should contain extra libraries. These are not required for the system to boot but can still be used as normal libraries.
+- `/usr/exec` should contain internal binaries, which *should not be run by the user directly.* These may include sophisticated post-install steps,
+or more complex removal tools.
 - `/usr/man` should contain manual entries for documentation. It should contain files with no extensions, whos names are the manual entries passed to
 programs such as `man`. It should be part of `MANPATH`. Any text wrapped in asterisks within those files should be highlighted in some way (either using
 a brighter color or a different color altogether).
@@ -73,3 +76,34 @@ When doing an `os.execute()`, it should invoke a shell.
 
 It must call the shell, typically supplied in the `SHELL` environment variable, with a `-c` argument, and another argumet as the entire string of the command.
 The invoked shell MUST immediately execute the command and exit with the same status code as the command. It MUST NOT continue running after the command.
+
+# KPM
+
+KPM has its config in `/etc/kpm.conf`, as a LON config.
+The `repos` field should be a list of repositories.
+Each repository should have a `type` and `repo` field, both of which are strings.
+
+`type` may be `internet` for online repositories, and `filesystem` for on-disk repositories. More formats may be
+supported by the implementation, but these 2 should exist.
+For `internet` types, the `repo` is the full base URL, starting with `http://` or `https://`. To get the URLs of subfiles, `/subfilepath` is added to the end.
+For `filesystem` types, the `repo` is the full path on disk to a directory. The subfiles are copied from there.
+
+When downloading files over the `internet`, it makes plain GET requests. When using on-disk repositories, it copies the files.
+
+When KPM queries package information, it will attempt to query, from all repositories, a `<package name>.kpm` file.
+
+The package file should have the following fields, most of which are optional:
+- `name`, a string representing the package's display name, which may difer from its filename. Defaults to the filename.
+- `author`, a string representing the author of the package.
+- `version`, a string representing the version of the package. Packages are only updated if the version string changes in any
+way, not necessary as per semantic versioning, though it is recommended to use the `major.minor.patch` version naming scheme.
+- `files`, a table where each field is a string representing the *full* path to put a file, and the value is the file path
+local to this repository to download it from. If the parent directories are missing, they are created. Optional. Defaults to no files.
+- `extraFiles`, a list of *full* paths to consider part of the package. These should be removed once uninstalled. These may be
+directories, in which case they should be deleted recursively. Optional. Defaults to no extra files.
+- `keepFiles`, a list of *full* paths to keep after uninstalling. Optional. Defaults to no kept files.
+- `dependencies`, a list of packages to install as dependencies. Only package names are specified, and are queried through all repositories.
+They should be installed before this package. Optional. Defaults to no dependencies.
+- `postInstall`, a list of shell commands to `os.execute` after a first-install.
+- `postUpdate`, a list of shell commands to `os.execute` after an update, but not on a first-install.
+- `cleanup`, a list of shell commands to `os.execute` when the package is uninstalled, BEFORE any files are removed.
