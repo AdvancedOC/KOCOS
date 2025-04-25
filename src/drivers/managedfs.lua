@@ -87,6 +87,11 @@ function managedfs:permissionsOf(path)
     return 2^16-1 -- Don't ask
 end
 
+---@param path string
+function managedfs:modifiedTime(path)
+    return self.disk.lastModified(path)
+end
+
 function managedfs:ioctl(fd, action, ...)
     if action == "disk" then
         return self.disk.address

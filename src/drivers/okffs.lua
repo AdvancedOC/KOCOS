@@ -643,6 +643,12 @@ function okffs:permissionsOf(path)
     return 2^16-1
 end
 
+function okffs:modifiedTime(path)
+    local entry = self:entryOf(path)
+    if entry then return entry.mtimeMS / 1000 end
+    return 0
+end
+
 function okffs:sizeOfBlockList(block)
     local n = 0
     while true do
@@ -957,6 +963,8 @@ function okffs:write(fd, data)
         self:saveDirectoryEntry(handle.state.entry)
     end
     handle.pos = handle.pos + #data
+    -- TODO: use better time
+    handle.state.entry.mtimeMS = os.time()*1000
     self:recordModification(handle)
     return true
 end

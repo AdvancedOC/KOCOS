@@ -332,7 +332,7 @@ function syscalls.stat(proc, path)
     info.total = KOCOS.fs.spaceTotal(path)
     info.size = KOCOS.fs.size(path)
     info.perms = KOCOS.fs.permissionsOf(path)
-    info.mtime = 0
+    info.mtime = KOCOS.fs.modifiedTime(path)
     info.uauth = 2^16-1
     info.isMount = KOCOS.fs.isMount(path)
     local partition = KOCOS.fs.partitionOf(path)

@@ -465,6 +465,13 @@ function fs.permissionsOf(path)
 end
 
 ---@param path string
+---@return integer
+function fs.modifiedTime(path)
+    local manager, truePath = fs.resolve(path)
+    return manager:modifiedTime(truePath)
+end
+
+---@param path string
 ---@return boolean, string
 function fs.remove(path)
     if fs.isMount(path) then return false, "is mountpoint" end
