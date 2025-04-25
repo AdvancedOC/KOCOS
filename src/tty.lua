@@ -1,3 +1,27 @@
+---@alias KOCOS.Palette {[integer]: integer}
+
+---@class KOCOS.TTY
+---@field x integer
+---@field y integer
+---@field w integer
+---@field h integer
+---@field gpu table
+---@field keyboard string
+---@field mtx KOCOS.Lock
+---@field isCursorShown boolean
+---@field cursorToggleTime number
+---@field defaultFg integer
+---@field defaultBg integer
+---@field fg integer
+---@field bg integer
+---@field responses mail
+---@field commands mail
+---@field escape? string
+---@field ansiPalette KOCOS.Palette
+---@field color256 KOCOS.Palette
+---@field buffer string
+---@field conceal boolean
+---@field keysDown {[integer]: boolean}
 local tty = {}
 tty.__index = tty
 
@@ -29,66 +53,164 @@ local stdClrs = {
     [97] = color(255, 255, 255), -- bright white
 }
 
-function tty.create(gpu, screen)
-    gpu.bind(screen.address)
-    local w, h = gpu.maxResolution()
-    gpu.setResolution(w, h)
+local color256 = {
+    [0] = stdClrs[30],
+    [1] = stdClrs[31],
+    [2] = stdClrs[32],
+    [3] = stdClrs[33],
+    [4] = stdClrs[34],
+    [5] = stdClrs[35],
+    [6] = stdClrs[36],
+    [7] = stdClrs[37],
+    [8] = stdClrs[90],
+    [9] = stdClrs[91],
+    [10] = stdClrs[92],
+    [11] = stdClrs[93],
+    [12] = stdClrs[94],
+    [13] = stdClrs[95],
+    [14] = stdClrs[96],
+    [15] = stdClrs[97],
+}
+
+for red=0,5 do
+    for green=0,5 do
+        for blue=0,5 do
+            local code = 16 + (red * 36) + (green * 6) + blue
+            local r, g, b = 0, 0, 0
+            if red ~= 0 then r = red * 40 + 55 end
+            if green ~= 0 then g = green * 40 + 55 end
+            if blue ~= 0 then b = blue * 40 + 55 end
+            color256[code] = color(r, g, b)
+        end
+    end
+end
+
+for gray=0, 23 do
+    local level = gray * 10 + 8
+    local code = 232 + gray
+    color256[code] = color(level, level, level)
+end
+
+local MAXBUFFER = 64*1024
+local TOGGLE_INTERVAL = 0.5
+
+function tty.create(gpu, keyboard)
+    local w, h = gpu.getResolution()
     local t = setmetatable({
-        gpu = gpu,
-        screen = screen,
         x = 1,
         y = 1,
         w = w,
         h = h,
-        buffer = "",
-        escape = nil,
-        commands = {},
-        responses = {},
-        -- Aux Port is about keyboard input, not yet implemented
-        auxPort = false,
-        conceal = false,
+        gpu = gpu,
+        keyboard = keyboard,
+        mtx = KOCOS.lock.create(),
+        isCursorShown = false,
+        cursorToggleTime = 0,
         defaultFg = stdClrs[37],
         defaultBg = stdClrs[30],
-        standardColors = table.copy(stdClrs),
+        fg = stdClrs[37],
+        bg = stdClrs[30],
+        ansiPalette = table.copy(stdClrs),
+        color256 = table.copy(color256),
+        -- they have buffer limits to try to mitigate OOM attacks
+        responses = mail.create(MAXBUFFER),
+        -- only *unknown* commands go here
+        commands = mail.create(MAXBUFFER),
+        escape = nil,
+        buffer = "",
+        conceal = false,
+        keysDown = {},
     }, tty)
-    t:setActiveColors(t.defaultFg, t.defaultBg)
+    t:reset()
     return t
+end
+
+function tty:setCursor(x, y)
+    self:hideCursor()
+    self.x = x
+    self.y = y
+end
+
+function tty:flush()
+    local l = lib.len(self.buffer)
+    self.gpu.set(self.x-l, self.y, self.buffer)
+    self.buffer = ""
+end
+
+function tty:hideCursor()
+    if self.isCursorShown then
+        local c = self.gpu.get(self.x, self.y)
+        self.gpu.setForeground(self.fg)
+        self.gpu.setBackground(self.bg)
+        self.gpu.set(self.x, self.y, c)
+    end
+    self.isCursorShown = false
+    self.cursorToggleTime = computer.uptime() + TOGGLE_INTERVAL
+end
+
+function tty:showCursor()
+    if not self.isCursorShown then
+        local c = self.gpu.get(self.x, self.y)
+        self.gpu.setForeground(self.bg)
+        self.gpu.setBackground(self.fg)
+        self.gpu.set(self.x, self.y, c)
+    end
+    self.isCursorShown = true
+    self.cursorToggleTime = computer.uptime() + TOGGLE_INTERVAL
+    self.gpu.setForeground(self.fg)
+    self.gpu.setBackground(self.bg)
+end
+
+function tty:toggleCursor()
+    if self.isCursorShown then
+        self:hideCursor()
+    else
+        self:showCursor()
+    end
+end
+
+function tty:setForeground(clr)
+    self.fg = clr
+    self.gpu.setForeground(clr)
+end
+
+function tty:setBackground(clr)
+    self.bg = clr
+    self.gpu.setBackground(clr)
+end
+
+function tty:reset()
+    self:setForeground(self.defaultFg)
+    self:setBackground(self.defaultBg)
+    self.conceal = false
+end
+
+---@param code integer
+---@param c integer
+function tty:setAnsiColor(code, c)
+    if not self.ansiPalette[code] then return end
+    self.ansiPalette[code] = c
+end
+
+---@param code integer
+---@param c integer
+function tty:setByteColor(code, c)
+    if not self.color256[code] then return end
+    self.color256[code] = c
+end
+
+function tty:lock()
+    self.mtx:lock(math.huge)
+end
+
+function tty:unlock()
+    self.mtx:unlock()
 end
 
 function tty:clear()
     self.x = 1
     self.y = 1
     self.gpu.fill(1, 1, self.w, self.h, " ")
-end
-
-function tty:flush()
-        self.gpu.set(self.x - lib.len(self.buffer), self.y, self.buffer)
-        self.buffer = ""
-end
-
-function tty:getActiveColors()
-    return self.gpu.getForeground(), self.gpu.getBackground()
-end
-
-function tty:setDefaultActiveColors(fg, bg)
-    self.defaultFg = fg
-    self.defaultBg = bg
-end
-
-function tty:setActiveColors(fg, bg)
-    return self.gpu.setForeground(fg), self.gpu.setBackground(bg)
-end
-
-function tty:getColorDepth()
-    return self.gpu.getDepth()
-end
-
-function tty:popCommand()
-    return table.remove(self.commands, 1)
-end
-
-function tty:popResponse()
-    return table.remove(self.responses, 1)
 end
 
 function tty:doGraphicalAction(args)
@@ -98,19 +220,15 @@ function tty:doGraphicalAction(args)
 
     local action = pop()
     if action == 0 then
-        self.conceal = false
-        self.auxPort = false
-        self:setActiveColors(self.defaultFg, self.defaultBg)
+        self:reset()
     elseif action == 8 then
         self.conceal = true
     elseif action == 28 then
         self.conceal = false
     elseif (action >= 30 and action <= 37) or (action >= 90 and action <= 97) then
-        local fg, bg = self:getActiveColors()
-        fg = self.standardColors[action]
-        self:setActiveColors(fg, bg)
+        self:setForeground(self.ansiPalette[action])
     elseif action == 38 then
-        local fg, bg = self:getActiveColors()
+        local fg = self.fg
         local mode = pop()
         if mode == 2 then
             -- 24-bit
@@ -118,14 +236,16 @@ function tty:doGraphicalAction(args)
             local g = pop()
             local b = pop()
             fg = color(r, g, b)
+        elseif mode == 5 then
+            -- 8-bit
+            local byte = pop()
+            fg = self.color256[byte] or 0
         end
-        self:setActiveColors(fg, bg)
+        self:setForeground(fg)
     elseif (action >= 40 and action <= 47) or (action >= 100 and action <= 107) then
-        local fg, bg = self:getActiveColors()
-        bg = self.standardColors[action-10]
-        self:setActiveColors(fg, bg)
+        self:setBackground(self.ansiPalette[action-10])
     elseif action == 48 then
-        local fg, bg = self:getActiveColors()
+        local bg = self.bg
         local mode = pop()
         if mode == 2 then
             -- 24-bit
@@ -133,55 +253,13 @@ function tty:doGraphicalAction(args)
             local g = pop()
             local b = pop()
             bg = color(r, g, b)
+        elseif mode == 5 then
+            -- 8-bit
+            local byte = pop()
+            bg = self.color256[byte] or 0
         end
-        self:setActiveColors(fg, bg)
+        self:setBackground(bg)
     end
-end
-
----@param num integer
----@return string
-local function paramBase16(num)
-    local base = "0123456789:;<=>?"
-    local s = ""
-    while num > 0 do
-        local n = num % #base
-        num = math.floor(num / #base)
-        s = s .. base:sub(n+1,n+1)
-    end
-    if s == "" then return "0" end
-    return s:reverse()
-end
-
-local function isControlCharacter(char)
-	return type(char) == "number" and (char < 0x20 or (char >= 0x7F and char <= 0x9F))
-end
-
-function tty:handleChar(char, code)
-    -- Keyboard disabled
-    if not self.auxPort then return end
-    -- KOCOS custom escape sequences cuz yeah
-    local mods = 0
-    if KOCOS.keyboard.isShiftDown() then
-        mods = mods + 1
-    end
-    if KOCOS.keyboard.isAltDown() then
-        mods = mods + 2
-    end
-    if KOCOS.keyboard.isControlDown() then
-        mods = mods + 4
-    end
-    if KOCOS.keyboard.isKeyDown(KOCOS.keyboard.keys) then
-        mods = mods + 8
-    end
-    local num = char
-    local term = "|"
-    if isControlCharacter(char) then
-        -- Send as code
-        num = code
-        term = "\\"
-    end
-    local s = "\x1b[" .. paramBase16(num * 16 + mods) .. term
-    table.insert(self.responses, s)
 end
 
 -- https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -254,23 +332,18 @@ function tty:processEscape(c)
             self.gpu.fill(1, y, self.w, 1, " ")
         end
 
-        if action == "i" then
-            -- CSI 5i for ON and CSI 4i for OFF, though we let any invalid param also be off.
-            self.auxPort = params == "5"
-        end
-
         if action == "n" then
             -- standard
             if params == "6" then
                 -- CSI 6n asks for a status report
-                table.insert(self.responses, "\x1b[" .. tostring(self.x) .. ";" .. tostring(self.y) .. "R")
+                self.responses:push("\x1b[" .. tostring(self.x) .. ";" .. tostring(self.y) .. "R")
             end
             -- non-standard
             if params == "5" then
-                table.insert(self.responses, "\x1b[" .. tostring(self.w) .. ";" .. tostring(self.h) .. "R")
+                self.responses:push("\x1b[" .. tostring(self.w) .. ";" .. tostring(self.h) .. "R")
             end
             if params == "7" then
-                table.insert(self.responses, "\x1b[" .. tostring(self.gpu.address) .. ";" .. tostring(self.gpu.getScreen()) .. "R")
+                self.responses:push("\x1b[" .. tostring(self.gpu.address) .. ";" .. tostring(self.gpu.getScreen()) .. "R")
             end
         end
     elseif start == ']' then
@@ -287,20 +360,20 @@ function tty:processEscape(c)
             end
         end
         if data then
-            table.insert(self.commands, data)
+            self:runCommand(data)
             self.escape = nil
         end
     end
 end
 
-function tty:put(c)
-    if self.y > self.h then
-        self:flush()
-        self.y = self.h
-        self.gpu.copy(1, 1, self.w, self.h, 0, -1)
-        self.gpu.fill(1, self.h, self.w, 1, " ")
-    end
+function tty:runCommand(cmd)
+    -- All commands are unrecognized
+    -- TODO: implement graphics calls
+    self.commands:push(cmd)
+end
 
+---@param c string
+function tty:putc(c)
     if self.escape then
         -- Likely a TTY OOM attack.
         if #self.escape >= 8192 then
@@ -324,7 +397,6 @@ function tty:put(c)
     end
 
     if self.conceal then
-        if #self.buffer > 0 then self:flush() end
         return
     end
 
@@ -337,7 +409,7 @@ function tty:put(c)
         self.x = self.x + 4
     elseif c:byte() == 0x07 then
         self:flush()
-        computer.beep() -- Bell beeps.
+        computer.beep()
     elseif c:byte() == 0x08 then
         self:flush()
         self.x = self.x - 1
@@ -347,7 +419,6 @@ function tty:put(c)
         self.x = 1
     elseif c == "\f" then
         self:flush()
-        -- There is no next printer page, so we just move to top of screen
         self.x = 1
         self.y = 1
     elseif c == "\x1b" then
@@ -364,44 +435,140 @@ function tty:put(c)
         self.x = 1
         self.y = self.y + 1
     end
-end
 
-function tty:unput(c)
-    if c == "\n" then
-        -- Assume this never happens
-        error("cant remove newline")
-    end
-    local w = c == "\t" and 4 or 1
-
-    self.x = self.x - w
-    self.gpu.set(self.x,self.y,string.rep(" ", w))
-    if self.x == 0 then
-        self.x = self.w + 1
-        self.y = self.y - 1
-    end
-
-    if self.y == 0 then
-        self.y = 1
+    if self.y > self.h then
+        self:flush()
+        self.y = self.h
+        self.gpu.copy(1, 1, self.w, self.h, 0, -1)
+        self.gpu.fill(1, self.h, self.w, 1, " ")
     end
 end
 
-function tty:write(data)
-    for i=1,lib.len(data) do
-        self:put(lib.sub(data, i, i))
+---@param buffer string
+function tty:write(buffer)
+    self:lock()
+    local l = lib.len(buffer)
+    for i=1,l do
+        local c = lib.sub(buffer, i, i)
+        self:putc(c)
     end
     self:flush()
+    self:unlock()
 end
 
-function tty:unwrite(data)
-    for i=lib.len(data), 1, -1 do
-        self:unput(lib.sub(data, i, i))
+function tty:print(f, ...)
+    self:write(string.format(f, ...))
+end
+
+function tty:popKeyboardEvent()
+    return KOCOS.event.popWhere(function(event, addr, char, code)
+        if addr == self.keyboard then
+            return true
+        end
+    end)
+end
+
+function tty:clearKeyboardEvent()
+    return KOCOS.event.clear(function(event, addr, char, code)
+        if addr == self.keyboard then
+            return true
+        end
+    end)
+end
+
+---@return string
+function tty:read()
+    local response = self.responses:pop()
+    if response then return response end
+
+    self:lock()
+    self:clearKeyboardEvent()
+
+    -- Handle cursor block
+    self:hideCursor()
+    local inputBuffer = ""
+    while true do
+        if self.cursorToggleTime <= computer.uptime() and not self.conceal then
+            self:toggleCursor()
+        end
+        local event, _, char, code = self:popKeyboardEvent()
+
+        if event == "key_down" then self.keysDown[code] = true end
+        if event == "key_up" then self.keysDown[code] = nil end
+
+        if event == "clipboard" then
+            local data = char:gsub('\n', ' ') -- TODO: make newlines somewhat supported
+            if not self.conceal then
+                self:hideCursor()
+                for i=1,lib.len(data) do
+                    self:putc(lib.sub(data, i, i))
+                end
+                self:flush()
+                self:showCursor()
+            end
+            inputBuffer = inputBuffer .. data
+        end
+
+        if event == "key_down" then
+            if code == KOCOS.keyboard.keys.enter then
+                if not self.conceal then
+                    self:hideCursor()
+                    self:putc('\n')
+                    self:flush()
+                end
+                inputBuffer = inputBuffer .. "\n"
+                break
+            elseif code == KOCOS.keyboard.keys.d and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
+                if not self.conceal then
+                    self:hideCursor()
+                    self:putc('\n')
+                    self:flush()
+                end
+                inputBuffer = inputBuffer .. string.char(4)
+                break
+            elseif code == KOCOS.keyboard.keys.back and #inputBuffer > 0 then
+                if not self.conceal then
+                    local c = lib.sub(inputBuffer, -1, -1)
+                    self:hideCursor()
+                    local cl = c == '\t' and 4 or 1
+                    for i=1,cl do
+                        self.x = self.x - 1
+                        if self.x < 1 then
+                            self.x = self.w
+                            self.y = math.max(self.y - 1, 1)
+                        end
+                        self.gpu.set(self.x, self.y, ' ')
+                    end
+                    self:showCursor()
+                end
+                inputBuffer = lib.sub(inputBuffer, 1, -2)
+            elseif not KOCOS.keyboard.isControl(char) or code == KOCOS.keyboard.keys.tab then
+                local c = lib.char(char)
+                inputBuffer = inputBuffer .. c
+                if not self.conceal then
+                    self:hideCursor()
+                    if c == "\t" then
+                        self:putc(' ')
+                        self:putc(' ')
+                        self:putc(' ')
+                        self:putc(' ')
+                    else
+                        self:putc(c)
+                    end
+                    self:flush()
+                    self:showCursor()
+                end
+            end
+        end
+        KOCOS.yield()
     end
+
+    self:unlock()
+    return inputBuffer
 end
 
-function tty:print(fmt, ...)
-    self:write(string.format(fmt, ...))
+function tty:popCustomCommand()
+    return self.commands:pop()
 end
 
 KOCOS.tty = tty
-
-KOCOS.log("TTY subsystem loaded")

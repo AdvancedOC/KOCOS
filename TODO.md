@@ -1,3 +1,7 @@
+# More Advanced TTY
+
+The ability to move the cursor is pretty damn important
+
 # Radio sockets
 
 "radio" protocol, with "packet" subprotocol.
@@ -29,10 +33,6 @@ Notes that should be supported:
 - pling
 - snare
 - xylophone
-
-# Visible TTY cursor
-
-The current TTY feels like dogwater
 
 # Complete devfs
 

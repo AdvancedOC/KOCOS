@@ -6,6 +6,11 @@ local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, 
 local clist, cproxy, cinvoke, ctype, attach
 local socket, serve, accept, connect
 
+local function ttyopen()
+    local err, fd = syscall("ttyopen")
+    return fd, err
+end
+
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
     return npid, err
@@ -155,14 +160,10 @@ function accept(fd)
     return clientfd, err
 end
 
-local tty = _K.tty.create(_OS.component.gpu, _OS.component.screen)
+local tty = assert(ttyopen())
 
-tty:clear()
-
-local programOut = assert(mopen("w", "", math.huge))
-local programIn = assert(mopen("w", "", math.huge))
-local stdout = assert(mkpipe(programIn, programOut))
-local stdin = assert(mopen("w", "", math.huge))
+local stdout = tty
+local stdin = tty
 
 local commandStdinBuffer = ""
 local function readLine()
@@ -231,6 +232,12 @@ end
 
 function cmds.exit(...)
     exit(0)
+end
+
+function cmds.concealed(...)
+    assert(write(stdout, "Super secret message:\x1b[8m"))
+    local line = readLine()
+    assert(write())
 end
 
 local sysret = false
@@ -1332,80 +1339,6 @@ end
 
 attach(myBeloved, "command")
 
-local function isEscape(char)
-    return char < 0x20 or (char >= 0x7F and char <= 0x9F)
-end
-
-_K.event.listen(function(event, _, char, code)
-    if event == "key_down" then
-        tty:handleChar(char, code)
-    end
-end)
-
-local inputBuffer
 while true do
-    if queued(programOut, "write") then
-        local data, err = read(programOut, math.huge)
-        if err then tty:write(err) end
-        clear(programOut)
-        assert(data, "no data")
-        tty:write(data)
-        coroutine.yield()
-    end
-
-    while true do
-        local response = tty:popResponse()
-        if not response then break end
-        assert(write(programIn, response))
-    end
-
-    if queued(stdin, "starved") and not inputBuffer then
-        clear(stdin)
-        inputBuffer = ""
-        _K.event.clear("key_down")
-    end
-
-    if tty.auxPort then
-        _K.event.pop("key_down")
-    end
-
-    if _K.keyboard.isControlDown() and _K.keyboard.isKeyDown(_K.keyboard.keys.r) then
-        _OS.computer.shutdown(true)
-    end
-
-    if inputBuffer and not tty.auxPort then
-        local ok, _, char, code = _K.event.pop("key_down")
-        if ok then
-            local lib = unicode or string
-            local backspace = 0x0E
-            local enter = 0x1C
-            if code == enter then
-                write(stdin, inputBuffer .. "\n")
-                clear(stdin)
-                tty:write('\n')
-                inputBuffer = nil
-            elseif code == backspace then
-                local t = lib.sub(inputBuffer, -1)
-                tty:unwrite(t)
-                inputBuffer = lib.sub(inputBuffer, 1, -2)
-            elseif _K.keyboard.isKeyDown(_K.keyboard.keys.d) and _K.keyboard.isControlDown() then
-                write(stdin, inputBuffer .. string.char(4))
-                clear(stdin)
-                tty:write('\n')
-                inputBuffer = nil
-            elseif not isEscape(char) then
-                tty:write(lib.char(char))
-                inputBuffer = inputBuffer .. lib.char(char)
-            end
-        end
-
-        local ok, _, clip = _K.event.pop("clipboard")
-        if ok then
-            local v = clip:gsub("\n", " ")
-            inputBuffer = inputBuffer .. v
-            tty:write(v)
-        end
-    end
-
     coroutine.yield()
 end

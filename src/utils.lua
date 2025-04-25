@@ -49,3 +49,40 @@ end
 function math.map(x, min1, max1, min2, max2)
     return min2 + ((x - min1) / (max1 - min1)) * (max2 - min2)
 end
+
+---@class mail
+---@field buffer string[]
+---@field len integer
+---@field limit integer
+mail = {}
+mail.__index = mail
+
+function mail.create(limit)
+    limit = limit or math.huge
+    return setmetatable({
+        buffer = {},
+        len = 0,
+        limit = limit,
+    }, mail)
+end
+
+function mail:empty()
+    return self.len == 0
+end
+
+---@return string?
+function mail:pop()
+    local msg = table.remove(self.buffer, 1)
+    if not msg then return end
+    self.len = self.len - #msg
+    return msg
+end
+
+---@param msg string
+function mail:push(msg)
+    self.len = self.len + #msg
+    table.insert(self.buffer, msg)
+    while self.len > self.limit do
+        self:pop()
+    end
+end

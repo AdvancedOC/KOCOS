@@ -213,7 +213,7 @@ end
 
 if KOCOS.loggingTTY then
     KOCOS.defer(function()
-        tty = KOCOS.tty.create(component.gpu, component.screen)
+        tty = KOCOS.tty.create(component.gpu, "no keyboard")
         tty:clear()
     end, math.huge)
 end

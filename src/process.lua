@@ -20,7 +20,7 @@ function lock:lock(timeout)
         if computer.uptime() > deadline then
             error("timeout")
         end
-        coroutine.yield()
+        KOCOS.yield()
     end
     self.locked = true
 end
@@ -119,7 +119,7 @@ end
 
 KOCOS.thread = thread
 
----@alias KOCOS.ResourceKind "file"|"lock"|"event"|"socket"|"vm"
+---@alias KOCOS.ResourceKind "file"|"lock"|"event"|"socket"|"vm"|"tty"
 
 ---@class KOCOS.Resource
 ---@field kind KOCOS.ResourceKind
@@ -145,6 +145,10 @@ KOCOS.thread = thread
 ---@field kind "vm"
 ---@field rc integer
 ---@field vm KOCOS.KVM
+
+---@class KOCOS.TTYResource: KOCOS.Resource
+---@field kind "tty"
+---@field tty KOCOS.TTY
 
 ---@class KOCOS.Process
 ---@field ring number

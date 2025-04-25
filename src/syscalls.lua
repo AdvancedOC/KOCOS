@@ -96,6 +96,29 @@ function syscalls.mopen(proc, mode, contents, limit)
     error(fd)
 end
 
+---@param gpu string
+---@param keyboard string
+function syscalls.ttyopen(proc, gpu, keyboard)
+    gpu = gpu or component.gpu.address
+    keyboard = keyboard or component.keyboard.address
+    assert(proc.ring <= 1, "permission denied")
+
+    local graphics = component.proxy(gpu)
+    if not graphics.getScreen() then
+        graphics.bind(component.screen.address)
+    end
+
+    local tty = KOCOS.tty.create(graphics, keyboard)
+
+    ---@type KOCOS.TTYResource
+    local res = {
+        kind = "tty",
+        tty = tty,
+    }
+
+    return proc:moveResource(res)
+end
+
 ---@param inFd integer
 ---@param outFd integer
 function syscalls.mkpipe(proc, inFd, outFd)
@@ -253,6 +276,9 @@ function syscalls.read(proc, fd, limit)
         ---@cast res KOCOS.SocketResource
         local s = res.socket
         return KOCOS.network.read(s, limit)
+    elseif res.kind == "tty" then
+        ---@cast res KOCOS.TTYResource
+        return res.tty:read()
     end
     error("bad resource type")
 end
@@ -272,6 +298,10 @@ function syscalls.write(proc, fd, data)
     elseif res.kind == "socket" then
         ---@cast res KOCOS.SocketResource
         return KOCOS.network.write(res.socket, data)
+    elseif res.kind == "tty" then
+        ---@cast res KOCOS.TTYResource
+        res.tty:write(data)
+        return true
     end
     error("bad resource type")
 end
