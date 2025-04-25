@@ -1275,12 +1275,28 @@ end
 function cmds.ptree()
     local function printTree(pid, depth)
         depth = depth or 0
-        local indentation
+        local indentation = string.rep("\t", depth)
+        local info = assert(pinfo(pid))
+        print(indentation .. info.cmdline)
+        print(indentation .. info.ring)
+        for _, child in ipairs(info.children) do
+            printTree(child, depth + 1)
+        end
     end
 
     local err, tree = syscall("pself")
     assert(tree, err)
     printTree(tree)
+end
+
+function cmds.plist()
+    local pid
+    while true do
+        pid = pnext(pid)
+        if not pid then break end
+        local info = assert(pinfo(pid))
+        print(pid, info.cmdline, table.concat(info.args, " "))
+    end
 end
 
 function cmds.time(args)

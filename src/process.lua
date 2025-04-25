@@ -254,7 +254,7 @@ local function rawSpawn(init, config)
     config = config or {}
 
     local ring = math.floor(config.ring or 0)
-    local cmdline = config.cmdline or ""
+    local cmdline = config.cmdline or init
     local args = config.args or {}
     local env = config.env or {}
     local uid = config.uid or 0
@@ -264,9 +264,7 @@ local function rawSpawn(init, config)
     local proc = setmetatable({}, process)
     proc.traced = not not config.traced
 
-    local namespace = setmetatable({}, {
-        __index = getCoreNamespace(),
-    })
+    local namespace = table.copy(getCoreNamespace())
 
     local syscall = function(name, ...)
         local sys = KOCOS.syscalls[name]

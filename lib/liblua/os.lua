@@ -35,7 +35,7 @@ function os.tmpname()
     end
 end
 
-os.SH_PATH = "/bin/sh"
+os.SH_PATH = os.getenv("SHELL") or "/bin/sh"
 
 ---@param command string
 ---@param files? {[integer]: buffer}

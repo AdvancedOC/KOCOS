@@ -17,16 +17,6 @@ package.loaded = {
 local sys = assert(loadModule("syscalls"))()
 package.loaded.sys = sys -- can't be shared
 
-if _SHARED then
-    if not _SHARED.package_loaded then
-        _SHARED.package_loaded = {}
-    end
-    setmetatable(package.loaded, {
-        __index = _SHARED.package_loaded,
-        __newindex = _SHARED.package_loaded,
-    })
-end
-
 ---@type {[string]: {data: string, file: string}}
 package.modules = {}
 package.preload = {}
