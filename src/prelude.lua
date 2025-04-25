@@ -49,6 +49,13 @@ local function oceLog(s)
     end
 end
 
+do
+    local ocelot = component.list("ocelot")()
+    if ocelot then
+        component.invoke(ocelot, "clearLog")
+    end
+end
+
 local tty
 
 function KOCOS.log(fmt, ...)

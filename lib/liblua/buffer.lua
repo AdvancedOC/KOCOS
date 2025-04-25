@@ -62,7 +62,6 @@ function buffer:flush()
     if ok then
         self.buffer = ""
     end
-    coroutine.yield()
     return ok, err
 end
 

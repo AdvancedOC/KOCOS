@@ -572,3 +572,5 @@ function tty:popCustomCommand()
 end
 
 KOCOS.tty = tty
+
+KOCOS.log("TTY subsystem loaded")
