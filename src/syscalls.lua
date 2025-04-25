@@ -675,7 +675,8 @@ function syscalls.pexit(proc, pid)
 
     local other = KOCOS.process.byPid(pid)
     assert(other, "bad pid")
-    if pid == proc.pid or proc:isDescendant(pid) or proc.ring < 2 then
+    assert(other.ring >= proc.ring, "permission denied")
+    if pid == proc.pid or proc:isDescendant(pid) then
         other:kill()
         if pid == proc.pid then KOCOS.yield() end
     else
@@ -684,7 +685,7 @@ function syscalls.pexit(proc, pid)
 end
 
 function syscalls.pspawn(proc, init, config)
-    assert(type(init) == "string" or type(init) == nil, "bad init path")
+    assert(type(init) == "string" or type(init) == "nil", "bad init path")
     assert(type(config) == "table", "bad config")
     local data = {
         ring = config.ring or proc.ring,

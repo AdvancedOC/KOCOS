@@ -11,6 +11,14 @@ local function ttyopen()
     return fd, err
 end
 
+local function ioctl(fd, action, ...)
+    local t = {syscall("ioctl", fd, action, ...)}
+    if t[1] then
+        return nil, t[1]
+    end
+    return table.unpack(t, 2)
+end
+
 function pnext(pid)
     local err, npid = syscall("pnext", pid)
     return npid, err
@@ -237,7 +245,7 @@ end
 function cmds.concealed(...)
     assert(write(stdout, "Super secret message:\x1b[8m"))
     local line = readLine()
-    assert(write())
+    assert(write(stdout, "\x1b[0m\n" .. line .. "\n"))
 end
 
 local sysret = false
@@ -727,7 +735,7 @@ local paramPattern = "[\x30-\x3F]+"
 function cmds.logKeys()
     local lib = unicode or string
     print("Press enter to exit")
-    write(stdout, "\x1b[5i") -- Enable aux port (keyboard)
+    write(stdout, "\x1b[5i") -- Enable immediate keyboard input
     local notExited = true
     while notExited do
         local data, err = read(stdout, math.huge)
@@ -1262,6 +1270,17 @@ function cmds.lua(args)
     }))
     syscall("pawait", pid)
     syscall("pexit", pid)
+end
+
+function cmds.ptree()
+    local function printTree(pid, depth)
+        depth = depth or 0
+        local indentation
+    end
+
+    local err, tree = syscall("pself")
+    assert(tree, err)
+    printTree(tree)
 end
 
 function cmds.time(args)

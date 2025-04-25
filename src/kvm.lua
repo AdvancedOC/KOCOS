@@ -16,7 +16,7 @@
 ---@field namespace _G
 ---@field components {[string]: KOCOS.VComponent}
 ---@field tmpAddr? string
----@field running boolean
+---@field mode "running"|"halted"|"restart"
 ---@field users string[]
 ---@field signals KOCOS.EventSystem
 ---@field uptimeOffset number
@@ -27,12 +27,9 @@ local kvm = {}
 
 kvm.uuid = KOCOS.testing.uuid
 
----@param vmName string
-function kvm.open(vmName)
-    local addr = kvm.uuid()
-    vmName = vmName or ("kvm-" .. addr)
-
-    local env = {}
+---@param vm KOCOS.KVM
+function kvm.init(vm)
+    local env = vm.namespace
 
     env._G = env
     env._VERSION = _VERSION
@@ -75,32 +72,15 @@ function kvm.open(vmName)
 
     env.unicode = table.copy(unicode)
 
-    ---@type KOCOS.KVM
-    local vm
-
-    local thread = coroutine.create(function()
+    vm.instance = coroutine.create(function()
         vm.signals.clear()
         local eeprom = component.list("eeprom")()
         assert(eeprom, "missing eeprom")
 
         local code = component.invoke(eeprom, "get")
-        return load(code, "=" .. vmName, nil, env)()
+        return load(code, "=" .. vm.name, nil, env)()
     end)
 
-    ---@type KOCOS.KVM
-    vm = {
-        address = addr,
-        name = vmName,
-        instance = thread,
-        eventsListened = {},
-        components = {},
-        namespace = env,
-        running = true,
-        tmpAddr = nil,
-        users = {},
-        signals = KOCOS.event.create(KOCOS.maxEventBacklog),
-        uptimeOffset = _G.computer.uptime(),
-    }
 
     -- Stuff that needs VM
     function computer.address()
@@ -154,7 +134,7 @@ function kvm.open(vmName)
     end
 
     function computer.shutdown(reboot)
-        vm.running = false
+        vm.mode = reboot and "restart" or "halted"
         KOCOS.yield()
     end
 
@@ -293,6 +273,34 @@ function kvm.open(vmName)
         assert(c, "no such component")
         return c.type
     end
+
+    return vm
+
+end
+
+---@param vmName string
+function kvm.open(vmName)
+    local addr = kvm.uuid()
+    vmName = vmName or ("kvm-" .. addr)
+
+    ---@type KOCOS.KVM
+    local vm = {
+        address = addr,
+        name = vmName,
+        instance = coroutine.create(function()
+            error("Uninitialized")
+        end),
+        eventsListened = {},
+        components = {},
+        namespace = {},
+        mode = "running",
+        tmpAddr = nil,
+        users = {},
+        signals = KOCOS.event.create(KOCOS.maxEventBacklog),
+        uptimeOffset = computer.uptime(),
+    }
+
+    kvm.init(vm)
 
     return vm
 end
@@ -586,6 +594,10 @@ function kvm.ioctl.remove(proc, vm, component)
     return kvm.remove(vm, component)
 end
 
+function kvm.ioctl.address(proc, vm)
+    return vm.address
+end
+
 function kvm.ioctl.listen(proc, vm, ...)
     assert(proc.ring <= 1, "permission denied")
     local n = select("#", ...)
@@ -609,8 +621,13 @@ function kvm.ioctl.forget(proc, vm, ...)
 end
 
 function kvm.ioctl.resume(proc, vm)
-    if not vm.running then
+    if vm.mode == "halted" then
         return false, "halted"
+    end
+    if vm.mode == "restart" then
+        -- Omega cheese
+        kvm.init(vm)
+        vm.mode = "running"
     end
     return KOCOS.resume(vm.instance)
 end
@@ -621,6 +638,10 @@ end
 
 function kvm.ioctl.env(proc, vm)
     return vm.namespace
+end
+
+function kvm.ioctl.mode(proc, vm)
+    return vm.mode
 end
 
 KOCOS.kvm = kvm

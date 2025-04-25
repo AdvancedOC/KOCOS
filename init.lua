@@ -6,7 +6,7 @@ local config = {
     rootfs = rootfs,
     init = "/basicTTY.lua",
     logThreadEvents = false,
-    syscallTraceback = true,
+    syscallTraceback = false,
     needsExtensions = false,
     -- not working currently
     sharedStorage = false,

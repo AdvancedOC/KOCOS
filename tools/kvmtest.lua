@@ -55,6 +55,13 @@ for _, mount in ipairs(mounts) do
 end
 
 while true do
+    if sys.ioctl(vm, "mode") == "halted" then
+        -- Clear TTY
+        io.write("\x1b[2J")
+        io.flush()
+        print("Machine halted.")
+        os.exit(0)
+    end
     local ok, err = sys.ioctl(vm, "resume")
     if not ok then
         local trace = sys.ioctl(vm, "traceback", err)

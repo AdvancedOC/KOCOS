@@ -22,6 +22,7 @@
 ---@field buffer string
 ---@field conceal boolean
 ---@field keysDown {[integer]: boolean}
+---@field readImmediate boolean
 local tty = {}
 tty.__index = tty
 
@@ -120,6 +121,7 @@ function tty.create(gpu, keyboard)
         buffer = "",
         conceal = false,
         keysDown = {},
+        readImmediate = false,
     }, tty)
     t:reset()
     return t
@@ -183,6 +185,7 @@ function tty:reset()
     self:setForeground(self.defaultFg)
     self:setBackground(self.defaultBg)
     self.conceal = false
+    self.readImmediate = false
 end
 
 ---@param code integer
@@ -332,6 +335,15 @@ function tty:processEscape(c)
             self.gpu.fill(1, y, self.w, 1, " ")
         end
 
+        if action == "i" then
+            if params == "5" then
+                self.readImmediate = true
+            end
+            if params == "4" then
+                self.readImmediate = false
+            end
+        end
+
         if action == "n" then
             -- standard
             if params == "6" then
@@ -396,6 +408,12 @@ function tty:putc(c)
         return
     end
 
+    if c == "\x1b" then
+        self:flush()
+        self.escape = ""
+        return
+    end
+
     if self.conceal then
         return
     end
@@ -421,10 +439,6 @@ function tty:putc(c)
         self:flush()
         self.x = 1
         self.y = 1
-    elseif c == "\x1b" then
-        self:flush()
-        self.escape = ""
-        return
     else
         self.buffer = self.buffer .. c
         self.x = self.x + 1
@@ -476,10 +490,58 @@ function tty:clearKeyboardEvent()
     end)
 end
 
+---@param num integer
+---@return string
+local function paramBase16(num)
+    local base = "0123456789:;<=>?"
+    local s = ""
+    while num > 0 do
+        local n = num % #base
+        num = math.floor(num / #base)
+        s = s .. base:sub(n+1,n+1)
+    end
+    if s == "" then return "0" end
+    return s:reverse()
+end
+
 ---@return string
 function tty:read()
     local response = self.responses:pop()
     if response then return response end
+
+    if self.readImmediate then
+        local event, _, char, code = self:popKeyboardEvent()
+        if event == "key_down" then self.keysDown[code] = true end
+        if event == "key_up" then self.keysDown[code] = nil end
+
+        if event ~= "key_down" then return "" end
+
+        -- KOCOS custom escape sequences cuz yeah
+        local keys = KOCOS.keyboard.keys
+        local mods = 0
+        if self.keysDown[keys.lshift] then
+            mods = mods + 1
+        end
+        if self.keysDown[keys.lmenu] then
+            mods = mods + 2
+        end
+        if self.keysDown[keys.lcontrol] then
+            mods = mods + 4
+        end
+        -- TODO: find some kind of meta key idk
+        if self.keysDown[keys] then
+            mods = mods + 8
+        end
+        local num = char
+        local term = "|"
+        if KOCOS.keyboard.isControl(char) then
+            -- Send as code
+            num = code
+            term = "\\"
+        end
+        local s = "\x1b[" .. paramBase16(num * 16 + mods) .. term
+        return s
+    end
 
     self:lock()
     self:clearKeyboardEvent()
