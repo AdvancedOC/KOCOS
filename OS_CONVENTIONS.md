@@ -1,7 +1,7 @@
 # OS Conventions
 
 KOCOS is just a kernel. However, software targeting the kernel should also interact with the rest of the operating system.
-Because of this, the software.
+Because of this, the software should know what to expect.
 
 This document covers how an OS should be structured and to some extent work, such that software knows what to expect.
 The kernel doesn't enforce much, and thus it isn't impossible to go against these conventions, but doing so may break some software.
