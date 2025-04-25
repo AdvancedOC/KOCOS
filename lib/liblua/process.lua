@@ -40,7 +40,7 @@ end
 -- Not traced, default ring, default files,
 -- same env as parent.
 function process.exec(cmd, ...)
-    cmd = io.searchpath(cmd)
+    if cmd:sub(1, 1) ~= "/" then cmd = io.searchpath(cmd) end
     return process.spawn(cmd, {
         args = {...},
     })
