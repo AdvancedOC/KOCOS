@@ -41,7 +41,7 @@ a brighter color or a different color altogether).
 - `/home` should contain the home directories of all the users.
 - `/etc/boot` should store a list of binaries used to boot the OS. The binaries are executed in sorted order, by the init system, on boot.
 The init system may have other locations to define other boot locations. These binaries are executed with **no arguments** and **an empty environment**, at
-**ring 0.** A conventional boot process would have one program which runs the main TTY and login (which are often merged into one program), and the rest just
+**ring 1.** A conventional boot process would have one program which runs the main TTY and login (which are often merged into one program), and the rest just
 start background daemons. The sorting used for the order is the default `table.sort` behavior when sorting the filenames. This also means that if the files
 start with 3 digit numbers, as is convention, they will be ran in order of the numbers.
 - `/mnt` should contain temporary mountpoints. `/mnt` itself may be the mountpoint, or it may simply contain the mountpoints.
