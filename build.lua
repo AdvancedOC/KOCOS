@@ -17,6 +17,7 @@ local sources = {
     "src/auth.lua",
     "src/radio.lua",
     "src/router.lua",
+    "src/kvm.lua",
     "src/drivers/procfs.lua",
     "src/drivers/devfs.lua",
     "src/drivers/managedfs.lua",

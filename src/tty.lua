@@ -376,7 +376,7 @@ function tty:unput(c)
     self.x = self.x - w
     self.gpu.set(self.x,self.y,string.rep(" ", w))
     if self.x == 0 then
-        self.x = self.w
+        self.x = self.w + 1
         self.y = self.y - 1
     end
 

@@ -361,6 +361,11 @@ function devfs:permissionsOf()
     return KOCOS.perms.encode(0, KOCOS.perms.BIT_RW, KOCOS.perms.ID_ALL, 0)
 end
 
+function devfs:modifiedTime()
+    -- instantly reactive means always modified
+    return os.time()
+end
+
 KOCOS.fs.addDriver(devfs)
 
 KOCOS.defer(function()

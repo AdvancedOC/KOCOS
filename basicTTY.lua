@@ -167,15 +167,14 @@ local stdin = assert(mopen("w", "", math.huge))
 local commandStdinBuffer = ""
 local function readLine()
     while true do
-        commandStdinBuffer = commandStdinBuffer .. assert(read(stdin, math.huge))
         local lineEnd = commandStdinBuffer:find('[%\n%\4]')
         if lineEnd then
             local line = commandStdinBuffer:sub(1, lineEnd-1)
             commandStdinBuffer = commandStdinBuffer:sub(lineEnd+1)
             return line
-        else
-            coroutine.yield()
         end
+        commandStdinBuffer = commandStdinBuffer .. assert(read(stdin, math.huge))
+        coroutine.yield()
     end
 end
 
@@ -1360,9 +1359,10 @@ while true do
         assert(write(programIn, response))
     end
 
-    if queued(stdin, "read") and not inputBuffer then
+    if queued(stdin, "starved") and not inputBuffer then
         clear(stdin)
         inputBuffer = ""
+        _K.event.clear("key_down")
     end
 
     if tty.auxPort then
@@ -1380,8 +1380,8 @@ while true do
             local backspace = 0x0E
             local enter = 0x1C
             if code == enter then
-                clear(stdin)
                 write(stdin, inputBuffer .. "\n")
+                clear(stdin)
                 tty:write('\n')
                 inputBuffer = nil
             elseif code == backspace then
@@ -1389,8 +1389,8 @@ while true do
                 tty:unwrite(t)
                 inputBuffer = lib.sub(inputBuffer, 1, -2)
             elseif _K.keyboard.isKeyDown(_K.keyboard.keys.d) and _K.keyboard.isControlDown() then
-                clear(stdin)
                 write(stdin, inputBuffer .. string.char(4))
+                clear(stdin)
                 tty:write('\n')
                 inputBuffer = nil
             elseif not isEscape(char) then

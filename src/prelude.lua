@@ -232,15 +232,17 @@ if KOCOS.init then
     end, -math.huge)
 end
 
-local yield = coroutine.yield
-local resume = coroutine.resume
-
-function coroutine.yield(...)
-    return yield(false, ...)
+KOCOS._og_coro = {}
+for k, v in pairs(coroutine) do
+    KOCOS._og_coro[k] = v
 end
 
+local resume = coroutine.resume
+
+local sysYieldObj = {}
+
 function KOCOS.yield(...)
-    return yield(true, ...)
+    return coroutine.yield(sysYieldObj, ...)
 end
 
 function coroutine.resume(co, ...)
@@ -249,8 +251,8 @@ function coroutine.resume(co, ...)
         if not t[1] then
             return table.unpack(t)
         end
-        if not t[2] then
-            return true, table.unpack(t, 3)
+        if t[2] ~= sysYieldObj then
+            return true, table.unpack(t, 2)
         end
         KOCOS.yield(table.unpack(t, 3))
     end
@@ -261,6 +263,8 @@ function KOCOS.resume(co, ...)
     if not t[1] then
         return table.unpack(t)
     end
-    -- Don't care if it IS sysyield or not
-    return true, table.unpack(t, 3)
+    if t[2] == sysYieldObj then
+        return true, table.unpack(t, 3)
+    end
+    return true, table.unpack(t, 2)
 end

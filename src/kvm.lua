@@ -15,7 +15,7 @@
 ---@field instance thread
 ---@field namespace _G
 ---@field components {[string]: KOCOS.VComponent}
----@field tmpAddr string
+---@field tmpAddr? string
 ---@field running boolean
 ---@field users string[]
 ---@field signals KOCOS.EventSystem
@@ -46,6 +46,7 @@ function kvm.open(vmName)
     env.next = next
     env.pairs = pairs
     env.pcall = pcall
+    env.xpcall = xpcall
     env.rawequal = rawequal
     env.rawget = rawget
     env.rawlen = rawlen
@@ -62,7 +63,7 @@ function kvm.open(vmName)
     env.os = table.copy(os)
     env.string = table.copy(string)
     env.table = table.copy(table)
-    env.checkArg = table.copy(checkArg)
+    env.checkArg = checkArg
 
     local component = {}
 
@@ -74,7 +75,11 @@ function kvm.open(vmName)
 
     env.unicode = table.copy(unicode)
 
+    ---@type KOCOS.KVM
+    local vm
+
     local thread = coroutine.create(function()
+        vm.signals.clear()
         local eeprom = component.list("eeprom")()
         assert(eeprom, "missing eeprom")
 
@@ -83,7 +88,7 @@ function kvm.open(vmName)
     end)
 
     ---@type KOCOS.KVM
-    local vm = {
+    vm = {
         address = addr,
         name = vmName,
         instance = thread,
@@ -91,10 +96,10 @@ function kvm.open(vmName)
         components = {},
         namespace = env,
         running = true,
-        tmpAddr = kvm.uuid(),
+        tmpAddr = nil,
         users = {},
         signals = KOCOS.event.create(KOCOS.maxEventBacklog),
-        uptimeOffset = computer.uptime(),
+        uptimeOffset = _G.computer.uptime(),
     }
 
     -- Stuff that needs VM
@@ -158,6 +163,7 @@ function kvm.open(vmName)
     end
 
     computer.totalMemory = _G.computer.totalMemory
+    computer.getProgramLocations = _G.computer.getProgramLocations
 
     function computer.uptime()
         return _G.computer.uptime() - vm.uptimeOffset
@@ -167,12 +173,8 @@ function kvm.open(vmName)
         return table.unpack(vm.users)
     end
 
-    function computer.pullSignal(timeout)
-        if not vm.signals.queued() then
-            KOCOS.yield(timeout)
-        else
-            KOCOS.yield() -- we still always yield
-        end
+    function computer.pullSignal()
+        KOCOS.yield() -- we still always yield
         return vm.signals.pop()
     end
 
@@ -204,7 +206,15 @@ function kvm.open(vmName)
         local t = {}
 
         for comp, c in pairs(vm.components) do
-            if exact and (c.type == type) or (string.match(c.type, type)) then
+            if type then
+                if exact then
+                    if c.type == type then
+                        t[comp] = c.type
+                    end
+                elseif string.match(c.type, type) then
+                    t[comp] = c.type
+                end
+            else
                 t[comp] = c.type
             end
         end
@@ -260,7 +270,7 @@ function kvm.open(vmName)
         local c = vm.components[comp]
         assert(c, "no such component")
         local t = component.type(comp)
-        local s = component.slot(s)
+        local s = component.slot(comp)
 
         local proxy = {address = comp, type = t, slot = s, fields = {}}
         local methods = component.methods(comp)
@@ -294,14 +304,15 @@ end
 
 ---@param vm KOCOS.KVM
 ---@param component KOCOS.VComponent
-function kvm.add(vm, component)
-    local addr = kvm.uuid()
+---@param addr? string
+function kvm.add(vm, component, addr)
+    addr = addr or kvm.uuid()
     vm.components[addr] = component
     return addr
 end
 
 ---@param vm KOCOS.KVM
-function kvm.passthrough(vm, address)
+function kvm.passthrough(vm, address, raddr)
     local methods = component.methods(address)
     ---@type KOCOS.VComponent
     local vcomp = {
@@ -318,7 +329,7 @@ function kvm.passthrough(vm, address)
         end
         vcomp.docs[k] = component.doc(address, k)
     end
-    return kvm.add(vm, vcomp)
+    return kvm.add(vm, vcomp, raddr)
 end
 
 ---@param vm KOCOS.KVM
@@ -327,10 +338,12 @@ function kvm.remove(vm, component)
         vm.components[component].close()
     end
     vm.components[component] = nil
+    return true
 end
 
 ---@param vm KOCOS.KVM
 function kvm.close(vm)
+    KOCOS.log("Closing VM: %s", vm.name)
     while true do
         local c = next(vm.components)
         if not c then break end
@@ -469,6 +482,55 @@ function kvm.addVGPU(vm, slot)
 end
 
 ---@param vm KOCOS.KVM
+---@param code string
+---@param data string
+---@param label? string
+function kvm.addBIOS(vm, code, data, label)
+    -- This EEPROM reports that it has 4KiB of code and 1KiB data, but actually allows any amount
+    return kvm.add(vm, {
+        type = "eeprom",
+        slot = 0,
+        internal = {},
+        close = function() end,
+        docs = {},
+        methods = {
+            get = function()
+                return code
+            end,
+            set = function(newCode)
+                code = newCode
+                return true
+            end,
+            getData = function()
+                return data
+            end,
+            setData = function(newData)
+                data = newData
+            end,
+            getSize = function()
+                return 4096
+            end,
+            getDataSize = function()
+                return 1024
+            end,
+            getChecksum = function()
+                return "junkchck"
+            end,
+            makeReadonly = function(chck)
+                error("unsupported")
+            end,
+            getLabel = function()
+                return label
+            end,
+            setLabel = function(newLabel)
+                label = newLabel
+                return true
+            end,
+        },
+    })
+end
+
+---@param vm KOCOS.KVM
 ---@param event string
 function kvm.listen(vm, event)
     if vm.eventsListened[event] then return end
@@ -499,11 +561,29 @@ function kvm.ioctl.addVGPU(proc, vm, slot)
     return kvm.addVGPU(vm, slot)
 end
 
+function kvm.ioctl.addBIOS(proc, vm, code, data, label)
+    checkArg(1, code, "string")
+    checkArg(2, data, "string")
+    checkArg(3, label, "string", "nil")
+    return kvm.addBIOS(vm, code, data, label)
+end
+
 function kvm.ioctl.pass(proc, vm, addr)
     if component.ringFor(addr) < proc.ring then
         error("permission denied")
     end
-    return kvm.passthrough(vm, addr)
+    return kvm.passthrough(vm, addr, addr)
+end
+
+function kvm.ioctl.tmp(proc, vm, addr)
+    checkArg(1, addr, "string", "nil")
+    vm.tmpAddr = addr or vm.tmpAddr
+    return vm.tmpAddr
+end
+
+function kvm.ioctl.remove(proc, vm, component)
+    checkArg(1, component, "string")
+    return kvm.remove(vm, component)
 end
 
 function kvm.ioctl.listen(proc, vm, ...)
@@ -514,6 +594,7 @@ function kvm.ioctl.listen(proc, vm, ...)
         local s = tostring(v)
         kvm.listen(vm, s)
     end
+    return true
 end
 
 function kvm.ioctl.forget(proc, vm, ...)
@@ -524,6 +605,22 @@ function kvm.ioctl.forget(proc, vm, ...)
         local s = tostring(v)
         kvm.forget(vm, s)
     end
+    return true
+end
+
+function kvm.ioctl.resume(proc, vm)
+    if not vm.running then
+        return false, "halted"
+    end
+    return KOCOS.resume(vm.instance)
+end
+
+function kvm.ioctl.traceback(proc, vm, err)
+    return debug.traceback(vm.instance, err)
+end
+
+function kvm.ioctl.env(proc, vm)
+    return vm.namespace
 end
 
 KOCOS.kvm = kvm

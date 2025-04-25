@@ -238,6 +238,9 @@ function fs.read(file, len)
         if file.buffer == nil then return end
         ---@cast file KOCOS.MemoryFile
         if file.mode == "w" then
+            if #file.buffer == 0 then
+                pcall(file.events.push, "starved")
+            end
             if len < #file.buffer then
                 local chunk = file.buffer:sub(1, len)
                 file.buffer = file.buffer:sub(len+1)
@@ -657,6 +660,8 @@ KOCOS.defer(function()
     KOCOS.log("Mounted default root")
 
     if not fs.exists("/tmp") then assert(fs.mkdir("/tmp")) end
+    -- apparently it can be nil?
+    if not computer.tmpAddress() then return end
     local tmpfs = component.proxy(computer.tmpAddress())
     local partitions = fs.getPartitions(tmpfs)
     fs.mount("/tmp", partitions[1])

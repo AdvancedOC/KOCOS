@@ -75,8 +75,20 @@ event = function(maximum)
         callbacks[id] = nil
     end
 
-    function system.clear()
-        buffer = {}
+    function system.clear(...)
+        local t = {...}
+        if #t == 0 then
+            buffer = {}
+        else
+            for i=#buffer,1,-1 do
+                for _, e in ipairs(t) do
+                    if e == buffer[i][1] then
+                        table.remove(buffer, i)
+                        break
+                    end
+                end
+            end
+        end
     end
 
     system.create = event
