@@ -283,7 +283,7 @@ function syscalls.read(proc, fd, limit)
         return KOCOS.network.read(s, limit)
     elseif res.kind == "tty" then
         ---@cast res KOCOS.TTYResource
-        return res.tty:read()
+        return res.tty:read(limit)
     end
     error("bad resource type")
 end

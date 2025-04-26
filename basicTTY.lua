@@ -189,16 +189,36 @@ local tty = assert(ttyopen(graphics.address, keyboard))
 local stdout = tty
 local stdin = tty
 
+local history = {}
+
 local commandStdinBuffer = ""
 local function readLine()
+    local historyIndex = #history+1
     while true do
         local lineEnd = commandStdinBuffer:find('[%\n%\4]')
         if lineEnd then
             local line = commandStdinBuffer:sub(1, lineEnd-1)
             commandStdinBuffer = commandStdinBuffer:sub(lineEnd+1)
+            table.insert(history, line)
             return line
         end
-        commandStdinBuffer = commandStdinBuffer .. assert(read(stdin, math.huge))
+        -- TTY should never end
+        local data = assert(read(stdin, -1))
+        if string.find(data, "\t") then
+            assert(write(stdin, "autocomplete unsupported\t"))
+            data = ""
+        elseif data == "\x11" then
+            local l = history[historyIndex-1] or ""
+            historyIndex = math.max(historyIndex - 1, 1)
+            assert(write(stdin, l .. "\t"))
+            data = ""
+        elseif data == "\x12" then
+            local l = history[historyIndex] or ""
+            historyIndex = math.min(historyIndex + 1, #history+1)
+            assert(write(stdin, l .. "\t"))
+            data = ""
+        end
+        commandStdinBuffer = commandStdinBuffer .. data
         coroutine.yield()
     end
 end

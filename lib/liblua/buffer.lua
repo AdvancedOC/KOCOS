@@ -100,7 +100,9 @@ function buffer:getchunk()
     if self.mode == "r" then
         -- read from buffer
         if self.buffer == "" then
-            self.buffer = self.stream.read(self.stream.resource, self.buflen)
+            local data, err = self.stream.read(self.stream.resource, self.buflen)
+            if err then self.buffer = nil error(err) end -- DISK ERROR!!!
+            self.buffer = data
             if not self.buffer then return end
         end
         local chunk = self.buffer
@@ -109,15 +111,21 @@ function buffer:getchunk()
         local eotLoc = chunk:find(eot)
         if self.text and eotLoc then
             chunk = chunk:sub(1, eotLoc-1)
-            self.buffer = nil -- pretend file is closed
-            self.closed = true
-            return -- return EoF.
+            if #chunk == 0 then
+                return -- return EoF.
+            else
+                self.buffer = eot
+                return chunk
+            end
         end
         return chunk
     end
 
     self:flush()
-    return (self.stream.read(self.stream.resource, 1))
+    local data, err = self.stream.read(self.stream.resource, 1)
+    if err then self.buffer = nil error(err) end
+    if data == eot then return end
+    return data
 end
 
 ---@param chunk string

@@ -7,6 +7,8 @@ Also tab for autocomplete.
 
 Reading the TTY with `-1` as the length enables autocomplete.
 This means when the user presses tab, instead of doing nothing, it will send the line with the tab character where you pressed tab.
+The shell will then go in autocomplete mode, where the next write will then be written, with the tab character specifying
+where the cursor should be placed.
 
 # Radio sockets
 
