@@ -715,6 +715,7 @@ function cmds.fetch(...)
 
     local kocos = _OS.component.kocos
     if kocos then
+        table.insert(data, "VM Name: " .. kocos.getName())
         table.insert(data, "VM Host: " .. kocos.getHost())
         table.insert(data, "VM Hypervisor: " .. kocos.getHypervisor())
         table.insert(data, "Host Kernel: " .. kocos.getKernel())

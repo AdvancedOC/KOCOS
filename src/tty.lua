@@ -596,7 +596,7 @@ tty.TTY_ALLOW_AUTOCOMPLETE = -1
 ---@return string
 function tty:read(action)
     if self.gpu.type == "kocos" then
-        return self.gpu.read(1, math.huge)
+        return self.gpu.read(1, action)
     end
 
     local response = self.responses:pop()

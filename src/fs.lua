@@ -3,7 +3,7 @@
 ---@alias KOCOS.FileSystemDriver table
 
 ---@class KOCOS.File
----@field mode "w"|"r"|"a"
+---@field mode "w"|"r"|"a"|"i"
 ---@field refc integer
 ---@field kind "disk"|"memory"|"pipe"
 ---@field events KOCOS.EventSystem
@@ -113,7 +113,7 @@ function fs.mkpipe(input, output)
 end
 
 ---@param path string
----@param mode "w"|"r"
+---@param mode "w"|"r"|"a"|"i"
 ---@return KOCOS.DiskFile?, string
 function fs.open(path, mode)
     if fs.type(path) == "missing" then return nil, "missing file" end

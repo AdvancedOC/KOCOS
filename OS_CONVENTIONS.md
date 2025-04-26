@@ -99,11 +99,15 @@ The package file should have the following fields, most of which are optional:
 way, not necessary as per semantic versioning, though it is recommended to use the `major.minor.patch` version naming scheme.
 - `files`, a table where each field is a string representing the *full* path to put a file, and the value is the file path
 local to this repository to download it from. If the parent directories are missing, they are created. Optional. Defaults to no files.
+- `defaultFiles`, a table like `files`, but only used on a first install, or if new entries are added to it. If entries are removed,
+they should not be deleted, unless they are put in `extraFiles`. If the files are forcefully removed by the user via external programs,
+they *should not* be added back.
 - `extraFiles`, a list of *full* paths to consider part of the package. These should be removed once uninstalled. These may be
 directories, in which case they should be deleted recursively. Optional. Defaults to no extra files.
 - `keepFiles`, a list of *full* paths to keep after uninstalling. Optional. Defaults to no kept files.
 - `dependencies`, a list of packages to install as dependencies. Only package names are specified, and are queried through all repositories.
-They should be installed before this package. Optional. Defaults to no dependencies.
+They should be installed before this package. Optional. Defaults to no dependencies. A dependency entry can be a list of dependencies,
+which should be interpreted as a dependency group requiring the user to select which dependency to use.
 - `addons`, a list of packages to *optionally* install, as dependencies. They may be rejected by the user.
 - `postInstall`, a list of shell commands to `os.execute` after a first-install.
 - `postUpdate`, a list of shell commands to `os.execute` after an update, but not on a first-install.

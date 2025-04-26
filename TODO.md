@@ -58,6 +58,13 @@ Requires write permissions for that path.
 It appears the portable OKFFS implementation is broken.
 Lets fix that with a controlled shock.
 
+# mopen mode changes
+
+`r` should return a read-only buffer.
+`w` should return a mutable buffer with overwriting.
+`a` should return a stream.
+`i` should return a mutable buffer with inserting.
+
 # OKFFS mode changes
 
 Add a `erase` syscall to erase bytes starting at the file position.

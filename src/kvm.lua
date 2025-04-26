@@ -246,9 +246,8 @@ function kvm.init(vm)
     }
 
     function component.proxy(comp)
-        checkArg(1, comp, "string")
         local c = vm.components[comp]
-        assert(c, "no such component")
+        if not c then return nil, "no such component" end
         local t = component.type(comp)
         local s = component.slot(comp)
 
@@ -642,6 +641,10 @@ end
 
 function kvm.ioctl.mode(proc, vm)
     return vm.mode
+end
+
+function kvm.ioctl.name(proc, vm)
+    return vm.name
 end
 
 KOCOS.kvm = kvm

@@ -4,10 +4,10 @@ local syscalls = {}
 -- File and socket syscalls
 
 ---@param path string
----@param mode "w"|"r"
+---@param mode "w"|"r"|"a"|"i"
 function syscalls.open(proc, path, mode)
     assert(type(path) == "string", "invalid path")
-    assert(mode == "w" or mode == "r", "invalid mode")
+    assert(mode == "w" or mode == "r" or mode == "a" or mode == "i", "invalid mode")
 
     assert(KOCOS.fs.exists(path), "not found")
 

@@ -215,4 +215,22 @@ function terminal.resetByteColors()
     terminal.sendThemeCommand("B", "R")
 end
 
+function terminal.hide()
+    terminal.sendCSI("m", "8")
+end
+
+function terminal.show()
+    terminal.sendCSI("m", "28")
+end
+
+function terminal.readPassword(prompt)
+    if prompt then
+        sys.write(0, prompt)
+    end
+    terminal.hide()
+    local line = io.read("l")
+    terminal.show()
+    return line
+end
+
 return terminal

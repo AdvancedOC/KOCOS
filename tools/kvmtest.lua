@@ -2,7 +2,12 @@ print("Opening VM...")
 ---@module 'lib.libkvm.kvm'
 local kvm = require("kvm")
 ---@type libkvm
-local vm = assert(kvm.open("KVM"))
+local vm = assert(kvm.open("KVM Test"))
+
+if component.ocelot then
+    print("Passing through ocelot component...")
+    vm:pass(component.ocelot.address)
+end
 
 print("Select environment type")
 print("1. GPU hardware")
@@ -64,9 +69,6 @@ f()
 
     print("Adding KOCOS component...")
     vm:addKocos()
-
-    print("Passing through ocelot component...")
-    vm:pass(component.ocelot.address)
 else
     error("bad option bruh")
 end

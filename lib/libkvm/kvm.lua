@@ -128,6 +128,9 @@ function kvm:addKocos(subenv, files)
                 if subenv then return subenv[env] end
                 return assert(os.getenv(env))
             end,
+            getName = function()
+                return self:ioctl("name")
+            end,
             write = function(fd, data)
                 if not files[fd] then error("bad file descriptor") end
                 assert(sys.write(files[fd], data))
@@ -173,7 +176,7 @@ function kvm:addFilesystem(directory, label, slot, readOnly)
             open = function(path, mode)
                 mode = mode or "r"
                 mode = mode:sub(1, 1) -- fuck you opencomputers
-                if mode == "w" and readOnly then
+                if (mode == "w" or mode == "a") and readOnly then
                     error("unable to open in write mode")
                 end
                 path = assert(getPath(path), "invalid path")

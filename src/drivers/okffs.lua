@@ -41,7 +41,7 @@ struct okffs_header {
 
 ---@class KOCOS.OKFFS.Handle
 ---@field state KOCOS.OKFFS.FileState
----@field mode "w"|"r"|"a"
+---@field mode "w"|"r"|"a"|"i"
 ---@field pos integer
 -- Used to determine if cached stuff is valid
 ---@field syncedWith integer
@@ -750,6 +750,9 @@ function okffs:open(path, mode)
 
         -- we did a modification!!!!
         self:recordModification(handle)
+    elseif mode == "a" then
+        local entry = handle.state.entry
+        handle.pos = entry.fileSize
     end
     return fd
 end
@@ -945,7 +948,7 @@ function okffs:write(fd, data)
     end
     -- we gonna modify it
     local curBlock, curOff = self:getSeekBlockAndOffset(handle)
-    if handle.mode == "a" then
+    if handle.mode == "i" then
         local len = self:readUintN(curBlock, 3, 2)
         if curOff < len then
             -- when they're equal, we insert right after
@@ -961,6 +964,8 @@ function okffs:write(fd, data)
         self:overwriteBlockList(curBlock, curOff, data)
         handle.state.entry.fileSize = math.max(handle.state.entry.fileSize, handle.pos + #data)
         self:saveDirectoryEntry(handle.state.entry)
+    elseif handle.mode == "a" then
+        self:appendToBlockList(curBlock, curOff, data)
     end
     handle.pos = handle.pos + #data
     -- TODO: use better time
@@ -991,6 +996,7 @@ end
 function okffs:seek(fd, whence, off)
     local handle = self.handles[fd]
     if not handle then return nil, "bad file descriptor" end
+    if handle.mode == "a" then return nil, "bad file descriptor" end -- makes no sense
     local size = self:getHandleSize(handle)
     local pos = handle.pos
     if whence == "set" then
@@ -1098,7 +1104,7 @@ KOCOS.test("OKFFS driver", function()
     assert(manager:remove("spam"))
     assert(manager:spaceUsed() == spaceUsed, "space is getting leaked (" .. (spaceUsed - manager:spaceUsed()) .. " blocks)")
 
-    local test = assert(manager:open("test", "a"))
+    local test = assert(manager:open("test", "i"))
     assert(manager:seek(test, "cur", 0) == 0, "bad initial position")
 
     local smallData = "Hello, world!"
