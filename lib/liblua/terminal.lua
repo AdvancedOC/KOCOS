@@ -1,8 +1,166 @@
-local terminal = require("terminal")
+local terminal = {}
+local sys = require"syscalls"
 
 function terminal.isatty()
     -- TODO: actually check once possible
     return true
+end
+
+function terminal.sendCSI(terminator, ...)
+    checkArg(1, terminator, "string")
+    local params = table.concat({...}, ";")
+    assert(sys.write(0, "\x1b[" .. params .. terminator))
+end
+
+function terminal.clear()
+    terminal.sendCSI("J", "2")
+end
+
+function terminal.sendOSC(command, terminator)
+    checkArg(1, command, "string")
+    checkArg(2, terminator, "string", "nil")
+    terminator = terminator or "\x1b\x5C"
+    assert(sys.write(0, "\x1b]" .. command .. terminator))
+end
+
+function terminal.keyboardMode(enabled)
+    terminal.sendCSI("i", enabled and "5" or "4")
+end
+
+local function parseTerm16(s)
+    local t = {
+        [":"] = "A",
+        [";"] = "B",
+        ["<"] = "C",
+        ["="] = "D",
+        [">"] = "E",
+        ["?"] = "F",
+    }
+    return tonumber(string.gsub(s, ".", t), 16)
+end
+
+local escapePattern = "\x1b%[[\x30-\x3F]*[\x20-\x2F]*[\x40-\x7E]"
+local paramPattern = "[\x30-\x3F]+"
+
+---@type string[]
+local escapesBuffer = {}
+
+---@return string?
+function terminal.readEscape()
+    if #escapesBuffer == 0 then
+        while true do
+            local data = sys.read(1, math.huge)
+            for escape in string.gmatch(data, escapePattern) do
+                table.insert(escapesBuffer, escape)
+            end
+            if data ~= "" then break end -- not waiting for data
+            -- TODO: system yield
+            coroutine.yield()
+        end
+    end
+    return table.remove(escapesBuffer, 1)
+end
+
+function terminal.isShiftPressed(modifiers)
+    return bit32.btest(modifiers, 1)
+end
+
+function terminal.isAltPressed(modifiers)
+    return bit32.btest(modifiers, 2)
+end
+
+function terminal.isControlPressed(modifiers)
+    return bit32.btest(modifiers, 4)
+end
+
+function terminal.isSuperPressed(modifiers)
+    return bit32.btest(modifiers, 8)
+end
+
+-- Returns a parsed representation of an escape code
+---@return string?, ...
+function terminal.queryEvent()
+    local escape = terminal.readEscape()
+    if not escape then return end -- no escapes to parse
+    local term = escape:sub(-1, -1)
+    local param = string.match(escape, paramPattern)
+
+    if term == "R" then
+        -- response
+        return "response", param
+    end
+    if term == "|" then
+        local n = parseTerm16(param)
+        local mod = n % 16
+        n = math.floor(n / 16)
+        -- Mimics OC key_down events
+        return "key_down", "terminal", n, 0, mod
+    end
+    if term == "\\" then
+        local n = parseTerm16(param)
+        local mod = n % 16
+        n = math.floor(n / 16)
+        -- Mimics OC key_down events
+        return "key_down", "terminal", 0, n, mod
+    end
+    return "unknown", escape
+end
+
+---@return string
+function terminal.getResponse()
+    while true do
+        local e, resp = terminal.queryEvent()
+        if e == "response" then
+            return resp
+        end
+        coroutine.yield()
+    end
+end
+
+function terminal.getResolution()
+    terminal.sendCSI("n", "5")
+    local resp = terminal.getResponse()
+    local parts = string.split(resp, ';')
+    return tonumber(parts[1]), tonumber(parts[2])
+end
+
+-- Sends a KG OS command, which is used to perform raw draw operations.
+-- More accurately, this powers set, fill and copy.
+-- setForeground and setBackground use CSI 38 and 48 m.
+function terminal.sendGraphicsCommand(cmd, ...)
+    local args = table.concat({cmd, ...}, " ")
+    terminal.sendOSC("KG" .. args)
+end
+
+local function rgbSplit(c)
+    local b = c % 256
+    local g = math.floor(c / 256) % 256
+    local r = math.floor(c / 65536) % 256
+    return r, g, b
+end
+
+---@param c string
+function terminal.setForeground(c)
+    local r, g, b = rgbSplit(c)
+    terminal.sendCSI("m", "38", "2", r, g, b)
+end
+
+---@param c string
+function terminal.setBackground(c)
+    local r, g, b = rgbSplit(c)
+    terminal.sendCSI("m", "48", "2", r, g, b)
+end
+
+function terminal.set(x, y, s)
+    terminal.sendGraphicsCommand("set", tostring(x), tostring(y), s)
+end
+
+function terminal.fill(x, y, w, h, s)
+    terminal.sendGraphicsCommand("fill", tostring(x), tostring(y), tostring(w), tostring(h), s)
+end
+
+function terminal.copy(x, y, w, h, tx, ty)
+    terminal.sendGraphicsCommand("copy", tostring(x), tostring(y), tostring(w), tostring(h), tostring(tx), tostring(ty))
 end
 
 return terminal

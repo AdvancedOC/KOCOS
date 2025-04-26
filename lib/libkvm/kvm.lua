@@ -162,16 +162,29 @@ function kvm:addFilesystem(directory, label, slot, readOnly)
     return self:add {
         type = "filesystem",
         slot = slot or -1,
-        close = function() end,
+        close = function()
+            for _, fd in pairs(fdMap) do
+                sys.close(fd)
+            end
+        end,
         internal = {},
         docs = {},
         methods = {
             open = function(path, mode)
+                mode = mode or "r"
+                mode = mode:sub(1, 1) -- fuck you opencomputers
                 if mode == "w" and readOnly then
                     error("unable to open in write mode")
                 end
                 path = assert(getPath(path), "invalid path")
-                local f = assert(sys.open(path, mode))
+                if mode == "w" then
+                    if sys.ftype(path) == "missing" then
+                        local ok, err = sys.touch(path, 2^16-1)
+                        assert(ok, err)
+                    end
+                end
+                local f, err = sys.open(path, mode)
+                assert(f, err)
                 -- TODO: handle OOM case
                 fdMap[f] = f
                 return f

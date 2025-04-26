@@ -15,7 +15,9 @@ local function readBinary(drive, pos, size)
     local s = ""
 
     for i=1,size do
-        s = s .. string.char(drive.readByte(pos+i-1))
+        local b = drive.readByte(pos+i-1)
+        if b < 0 then b = b + 256 end
+        s = s .. string.char(b)
     end
 
     return s

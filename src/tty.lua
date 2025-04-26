@@ -380,9 +380,6 @@ function tty:processEscape(c)
             if params == "5" then
                 self.responses:push("\x1b[" .. tostring(self.w) .. ";" .. tostring(self.h) .. "R")
             end
-            if params == "7" then
-                self.responses:push("\x1b[" .. tostring(self.gpu.address) .. ";" .. tostring(self.gpu.getScreen()) .. "R")
-            end
         end
     elseif start == ']' then
         -- Process as OSC
@@ -398,7 +395,10 @@ function tty:processEscape(c)
             end
         end
         if data then
-            self:runCommand(data)
+            local ok, err = pcall(self.runCommand, self, data)
+            if not ok then
+                KOCOS.log("TTY ERROR: %s", err)
+            end
             self.escape = nil
         end
     end
@@ -407,6 +407,38 @@ end
 function tty:runCommand(cmd)
     -- All commands are unrecognized
     -- TODO: implement graphics calls
+    if cmd:sub(1,2) == "KG" then
+        -- KOCOS Graphics command
+        self:sync()
+        local args = string.split(cmd:sub(3), " ")
+        local op = table.remove(args, 1)
+        -- unrecognized is just a no-op
+        if op == "set" then
+            local x = tonumber(args[1]) or 1
+            local y = tonumber(args[2]) or 1
+            local s = table.concat(args, " ", 3)
+            assert(self.gpu.set(x, y, s))
+        end
+        if op == "fill" then
+            local x = tonumber(args[1]) or 1
+            local y = tonumber(args[2]) or 1
+            local w = tonumber(args[3]) or 1
+            local h = tonumber(args[4]) or 1
+            local s = args[5]
+            if not s or #s == 0 then s = " " end
+            assert(self.gpu.fill(x, y, w, h, s))
+        end
+        if op == "copy" then
+            local x = tonumber(args[1]) or 1
+            local y = tonumber(args[2]) or 1
+            local w = tonumber(args[3]) or 1
+            local h = tonumber(args[4]) or 1
+            local tx = tonumber(args[5]) or 0
+            local ty = tonumber(args[6]) or 0
+            assert(self.gpu.copy(x, y, w, h, tx, ty))
+        end
+        return
+    end
     self.commands:push(cmd)
 end
 
@@ -428,7 +460,7 @@ function tty:putc(c)
                 -- Invalid
                 self.escape = nil
             end
-        elseif #c > 0 then
+        else
             self:processEscape(c)
         end
         return
