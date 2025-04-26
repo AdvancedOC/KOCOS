@@ -30,7 +30,7 @@ if opt == "1" then
     vm:addBIOS(code, "", component.eeprom.getLabel())
 
     print("Passing through keyboard events...")
-    vm:listen("key_down", "key_up")
+    vm:listen("key_down", "key_up", "clipboard")
 elseif opt == "2" then
     print("Adding custom BIOS")
 local kocosBios = [[

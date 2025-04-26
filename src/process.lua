@@ -457,7 +457,7 @@ function process.closeResource(resource)
         if resource.rc <= 0 then
             KOCOS.network.close(resource.socket)
         end
-    elseif resource.kind == "socket" then
+    elseif resource.kind == "vm" then
         ---@cast resource KOCOS.KVMResource
         resource.rc = resource.rc - 1
         if resource.rc <= 0 then

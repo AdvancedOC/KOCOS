@@ -350,12 +350,19 @@ end
 
 ---@param vm KOCOS.KVM
 function kvm.close(vm)
-    KOCOS.log("Closing VM: %s", vm.name)
     while true do
         local c = next(vm.components)
         if not c then break end
         -- calls destructors on all components
         kvm.remove(vm, c)
+    end
+
+    local events = {}
+    for event in pairs(vm.eventsListened) do
+        table.insert(events, event)
+    end
+    for _, event in ipairs(events) do
+        kvm.forget(vm, event)
     end
 end
 
