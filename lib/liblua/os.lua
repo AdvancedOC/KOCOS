@@ -35,14 +35,20 @@ function os.tmpname()
     end
 end
 
-os.SH_PATH = os.getenv("SHELL") or "/bin/sh"
+---@return string?
+function os.getShell()
+    local path = os.getenv("SHELL") or "/bin/sh"
+    if not os.exists(path) then return end
+    return path
+end
 
 ---@param command string
 ---@param files? {[integer]: buffer}
 function os.spawnCmd(command, files)
-    if os.exists(os.SH_PATH) then
+    local shPath = os.getShell()
+    if shPath then
         -- Run actual shell
-        return process.exec(os.SH_PATH, "-c", command)
+        return process.exec(shPath, "-c", command)
     end
     -- Emulated shell.
     -- Worst shell parser there is btw

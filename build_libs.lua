@@ -24,6 +24,7 @@ local buildInfo = {
             terminal = "terminal.lua",
             dl = "dl.lua",
             component = "component.lua",
+            keyboard = "keyboard.lua",
             -- _start is the entry symbol
             _start = "package.lua",
         },

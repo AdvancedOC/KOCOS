@@ -63,76 +63,17 @@ Reducing seek times.
 
 # KVM - KOCOS Virtual Machines
 
-Simulating an OpenComputers computer with either virtual hardware or passed through hardware.
-It has its own "vm" resource, with its own event system.
+## KVM Virtual Networks
 
-## Basic overview
+Virtual Modems can be added which use *Virtual Networks.*
+They can be bound to one virtual network.
+A virtual network is identified by a string key.
+They can communicate across virtual machines.
 
-A `kvmopen` syscall is used to open a new blank virtual machine.
-`kvmresume` can be used to run it until it yields. Pulling signals always yields.
-It will return if the machine *is still running*. If false, a 2nd return is made.
-A string if it crashed due to an error, a boolean if it shutdown, indicating whether it wishes to restart.
-`kvmadd` can be used to add a virtual component by proxy, more on that later.
-Can be told to raise a `component_added` event.
-`kvmaddGPU` can be used to add a virtual GPU that can be bound to a screen and forwards all the
-calls to the screen's internal vgpu calls.
-`kvmpass` can be used to pass through a real component as a virtual component. This requires
-permission to use said real component, so passing through drives, eeproms, gpus or screens will require
-ring 1 or ring 0.
-`kvmremove` can be used to remove a virtual component from a VM. Will raise a `component_removed` event.
-`kvmlisten` can be used to pass through events from the host to the VM.
-`kvmforget` can be used to stop passing through events from the host to the VM.
-`kvmsettmp` can be used to set the result of `computer.tmpAddress()`.
-`kvmusers` can be used to set the reported users of the computer. `addUser` will add to the list of users,
-but will not be remembered.
-`kvmenv` can be used to get the globals of the VM. This can be used to patch anything if needed.
+Virtual Modems can also be given virtual X/Y/Z coordinates to compute signal distances.
+They default to 0/0/0.
 
-## Virtual Components
-
-```lua
--- Basic interface
-local component = {
-    type = "screen",
-    slot = -1,
-    -- For getDeviceInfo
-    info = {
-
-    },
-    methods = {
-        -- actual normal screen methods
-        -- errors are thrown, not returned.
-    },
-    -- Optional
-    docs = {
-        method = "docstring",
-    },
-    -- Destructor
-    close = function()
-
-    end,
-    -- internal storage for component-to-component data.
-    internal = {
-        -- KVM-provided VGPUs will use this.
-        -- This allows you to have a TUI screen, a remote screen,
-        -- or a real screen.
-        vgpu = {
-            set = function(x, y, s)
-                -- do stuff
-            end,
-            -- etc.
-        },
-    },
-}
-```
-
-## Events
-
-```lua
-local vm = kvmopen()
-
--- when a signal needs to be queued, we use the event syscalls
-push(vm, "key_down", keyboardAddr, 0, 0, "player")
-```
+They send `modem_message` signals.
 
 ## KVM command for basic VMs
 
@@ -161,22 +102,6 @@ hi
 
 ## KVM command's OS interop API
 
-### The KOCOS component
-
-```lua
--- 0 for stdout, 1 for stdin, 2 for stderr.
--- suppose OpenOS-style primaries
-local kocos = component.kocos
-
-kocos.write(0, "Hello!\n")
-local line = kocos.read(1, math.huge) -- simplification
-
-local os = kocos.getHost() -- gets the host _OSVERSION
-local kvm = kocos.getVirtualizer() -- gets the version of KVM used.
-
-print(os, kvm)
-```
-
 ### Signals
 
 ```lua
@@ -197,9 +122,9 @@ filesystem.mount(uuid, "/etc/stuff")
 # Responses are
 "kocos_response" <data> <err>
 # Things VM can do
-"kocos_mount" <path> # Adds filesystem or drive component. Response data is path
+"kocos_mount" <path> # Adds filesystem or drive component. Response data is address. Path can be to folder for filesystem and to file for drive.
 "kocos_remove" <component address> # Removes component. Response data is a boolean
-"kocos_passed" <component address> # Passed component.
+"kocos_vgpu" # Adds a VGPU. Reponse data is address.
 ```
 
 ## libkvm and kvm

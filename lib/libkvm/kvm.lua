@@ -90,7 +90,10 @@ end
 ---@return string
 function kvm:pass(address)
     for addr in component.list() do
-
+        if addr:sub(1, #address) == address then
+            address = addr
+            break
+        end
     end
     return assert(self:ioctl("pass", address))
 end

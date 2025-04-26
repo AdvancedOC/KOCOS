@@ -5,6 +5,7 @@ DevFS structure:
 /dev/components/<type>/<uuid> - Files to open proxies
 /dev/parts/<drive uuid>/<part uuid> - Files to access partitions. Partitions on managed partitions appear as files
 /dev/drives/<drive uuid> - Files to access whole drives.
+/dev/null
 /dev/zero
 /dev/random
 /dev/hex
@@ -48,6 +49,12 @@ function devfs:open(path, mode)
         return self:addProxy {
             address = "zero",
             type = "devfs:zero",
+        }
+    end
+    if path == "null" then
+        return self:addProxy {
+            address = "null",
+            type = "devfs:null",
         }
     end
     if path == "random" then
@@ -134,6 +141,9 @@ end
 
 function devfs:read(fd, limit)
     local proxy = assert(self.handles[fd], "bad file descriptor")
+    if proxy.address == "null" then
+        return nil
+    end
     if proxy.address == "zero" then
         if limit == math.huge then limit = 1024 end
         return string.rep("\0", limit)
@@ -216,6 +226,7 @@ end
 
 function devfs:type(path)
     if path == "" then return "directory" end
+    if path == "null" then return "file" end
     if path == "zero" then return "file" end
     if path == "random" then return "file" end
     if path == "hex" then return "file" end
@@ -237,7 +248,7 @@ function devfs:type(path)
         allowFullDrivePartition = true,
     }
     for _, part in ipairs(allParts) do
-        if path == "drives/" .. formatUUID(part.uuid) then
+        if path == "parts/" .. formatUUID(part.uuid) then
             return "file"
         end
     end
@@ -247,6 +258,7 @@ end
 function devfs:list(path)
     if path == "" then
         return {
+            "null",
             "zero",
             "random",
             "hex",
@@ -356,7 +368,21 @@ function devfs:getPartition()
     return self.partition
 end
 
-function devfs:permissionsOf()
+function devfs:permissionsOf(path)
+    local allGood = KOCOS.perms.encode(KOCOS.perms.ID_ALL, KOCOS.perms.BIT_READABLE, KOCOS.perms.ID_ALL, KOCOS.perms.BIT_READABLE)
+    local goodToUse = {
+        "null",
+        "zero",
+        "random",
+        "hex",
+    }
+    if allGood then
+        for _, good in ipairs(goodToUse) do
+            if good == path then
+                return allGood
+            end
+        end
+    end
     -- Root-only
     return KOCOS.perms.encode(0, KOCOS.perms.BIT_RW, KOCOS.perms.ID_ALL, 0)
 end
