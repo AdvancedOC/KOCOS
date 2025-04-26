@@ -132,6 +132,13 @@ function terminal.sendGraphicsCommand(cmd, ...)
     terminal.sendOSC("KG" .. args)
 end
 
+-- Sends a KT OS command, which is used to modify theme information.
+-- More accurately, this powers setAnsiColor and setByteColor.
+function terminal.sendThemeCommand(cmd, ...)
+    local args = table.concat({cmd, ...})
+    terminal.sendOSC("KT" .. args)
+end
+
 local function rgbSplit(c)
     local b = c % 256
     local g = math.floor(c / 256) % 256
@@ -161,6 +168,51 @@ end
 
 function terminal.copy(x, y, w, h, tx, ty)
     terminal.sendGraphicsCommand("copy", tostring(x), tostring(y), tostring(w), tostring(h), tostring(tx), tostring(ty))
+end
+
+function terminal.reset()
+    terminal.sendCSI("m", "0")
+end
+
+---@param n integer
+---@param l? integer
+function terminal.toHex(n, l)
+    local s = ""
+    local alpha = "0123456789ABCDEF"
+
+    while n > 0 do
+        local c = n % 16
+        n = math.floor(n / 16)
+        s = s .. alpha:sub(c+1, c+1)
+    end
+
+    if #s == 0 then s = "0" end
+
+    s = s:reverse()
+    if l and #s < l then
+        s = string.rep("0", l - #s) .. s
+    end
+    return s
+end
+
+---@param entry integer
+---@param color integer
+function terminal.setAnsiColor(entry, color)
+    terminal.sendThemeCommand("A", terminal.toHex(entry, 2), terminal.toHex(color))
+end
+
+function terminal.resetAnsiColors()
+    terminal.sendThemeCommand("A", "R")
+end
+
+---@param entry integer
+---@param color integer
+function terminal.setByteColor(entry, color)
+    terminal.sendThemeCommand("B", terminal.toHex(entry, 2), terminal.toHex(color))
+end
+
+function terminal.resetByteColors()
+    terminal.sendThemeCommand("B", "R")
 end
 
 return terminal

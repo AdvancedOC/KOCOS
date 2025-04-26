@@ -405,8 +405,6 @@ function tty:processEscape(c)
 end
 
 function tty:runCommand(cmd)
-    -- All commands are unrecognized
-    -- TODO: implement graphics calls
     if cmd:sub(1,2) == "KG" then
         -- KOCOS Graphics command
         self:sync()
@@ -436,6 +434,27 @@ function tty:runCommand(cmd)
             local tx = tonumber(args[5]) or 0
             local ty = tonumber(args[6]) or 0
             assert(self.gpu.copy(x, y, w, h, tx, ty))
+        end
+        return
+    elseif cmd:sub(1,2) == "KT" then
+        -- KOCOS Theme command
+        local c = cmd:sub(3, 3)
+        local entry = tonumber(cmd:sub(4, 5), 16) or -1
+        local hex = tonumber(cmd:sub(6), 16) or 0x000000
+        if c == "A" then
+            if cmd:sub(4, 4) == "R" then
+                -- Reset
+                self.ansiPalette = table.copy(stdClrs)
+                return
+            end
+            self:setAnsiColor(entry, hex)
+        elseif c == "B" then
+            if cmd:sub(4, 4) == "R" then
+                -- Reset
+                self.color256 = table.copy(color256)
+                return
+            end
+            self:setByteColor(entry, hex)
         end
         return
     end
