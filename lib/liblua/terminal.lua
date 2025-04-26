@@ -61,19 +61,19 @@ function terminal.readEscape()
     return table.remove(escapesBuffer, 1)
 end
 
-function terminal.isShiftPressed(modifiers)
+function terminal.isShiftDown(modifiers)
     return bit32.btest(modifiers, 1)
 end
 
-function terminal.isAltPressed(modifiers)
+function terminal.isAltDown(modifiers)
     return bit32.btest(modifiers, 2)
 end
 
-function terminal.isControlPressed(modifiers)
+function terminal.isControlDown(modifiers)
     return bit32.btest(modifiers, 4)
 end
 
-function terminal.isSuperPressed(modifiers)
+function terminal.isSuperDown(modifiers)
     return bit32.btest(modifiers, 8)
 end
 
