@@ -677,10 +677,12 @@ function tty:read(action)
                 inputBuffer = inputBuffer .. "\n"
                 break
             elseif code == KOCOS.keyboard.keys.c and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
-                self:putc('^')
-                self:putc('C')
-                self:putc('\n')
-                self:flush()
+                if not self.conceal then
+                    self:putc('^')
+                    self:putc('C')
+                    self:putc('\n')
+                    self:flush()
+                end
                 self:unlock()
                 error("interrupted")
             elseif code == KOCOS.keyboard.keys.d and self.keysDown[KOCOS.keyboard.keys.lcontrol] then

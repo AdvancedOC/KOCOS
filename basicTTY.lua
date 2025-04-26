@@ -207,13 +207,13 @@ local function readLine()
         if string.find(data, "\t") then
             assert(write(stdin, "autocomplete unsupported\t"))
             data = ""
-        elseif data == "\x11" then
+        elseif data == "\x11" and #history > 0 then
             local l = history[historyIndex-1] or ""
-            historyIndex = math.max(historyIndex - 1, 1)
+            historyIndex = math.max(historyIndex - 1, 0)
             assert(write(stdin, l .. "\t"))
             data = ""
         elseif data == "\x12" then
-            local l = history[historyIndex] or ""
+            local l = history[historyIndex+1] or ""
             historyIndex = math.min(historyIndex + 1, #history+1)
             assert(write(stdin, l .. "\t"))
             data = ""
