@@ -239,7 +239,7 @@ function fs.read(file, len)
         ---@cast file KOCOS.MemoryFile
         if file.mode == "w" then
             if #file.buffer == 0 then
-                pcall(file.events.push, "starved")
+                pcall(file.events.push, "starved", len)
             end
             if len < #file.buffer then
                 local chunk = file.buffer:sub(1, len)
