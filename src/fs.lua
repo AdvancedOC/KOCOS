@@ -198,7 +198,6 @@ end
 ---@param data string
 ---@return boolean, string
 function fs.write(file, data)
-    pcall(file.events.push, "write", data)
     if file.kind == "disk" then
         ---@cast file KOCOS.DiskFile
         return file.manager:write(file.fd, data)
@@ -230,7 +229,6 @@ end
 ---@param len integer
 ---@return string?, string?
 function fs.read(file, len)
-    pcall(file.events.push, "read", len)
     if file.kind == "disk" then
         ---@cast file KOCOS.DiskFile
         return file.manager:read(file.fd, len)
@@ -276,8 +274,6 @@ end
 ---@param offset integer
 ---@return integer?, string
 function fs.seek(file, whence, offset)
-    pcall(file.events.push, "seek", whence, offset)
-
     if file.kind == "memory" then
         ---@cast file KOCOS.MemoryFile
         if file.mode == "w" then
