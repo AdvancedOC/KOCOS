@@ -46,6 +46,8 @@ Notes that should be supported:
 
 `/dev/eeprom` and `/dev/eeprom-data`
 
+Ability to write to partitions and drives.
+
 Ability to actually use the damn thing.
 
 # Chown syscall
