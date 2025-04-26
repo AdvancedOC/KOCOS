@@ -239,9 +239,12 @@ function fs.read(file, len)
             if #file.buffer == 0 then
                 pcall(file.events.push, "starved", len)
             end
-            if len < #file.buffer then
-                local chunk = file.buffer:sub(1, len)
-                file.buffer = file.buffer:sub(len+1)
+            local l = len
+            -- Negative lengths indicate some goofy ahh TTY shit
+            if l < 0 then l = math.huge end
+            if l < #file.buffer then
+                local chunk = file.buffer:sub(1, l)
+                file.buffer = file.buffer:sub(l+1)
                 return chunk, nil
             end
             local data = file.buffer or ""

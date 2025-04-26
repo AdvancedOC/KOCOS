@@ -1,6 +1,12 @@
 # More Advanced TTY
 
 The ability to move the cursor is pretty damn important
+Also tab for autocomplete.
+
+## Autocomplete
+
+Reading the TTY with `-1` as the length enables autocomplete.
+This means when the user presses tab, instead of doing nothing, it will send the line with the tab character where you pressed tab.
 
 # Radio sockets
 
