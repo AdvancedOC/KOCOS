@@ -121,8 +121,6 @@ function tty.create(gpu, keyboard, config)
         color256 = table.copy(color256),
         -- they have buffer limits to try to mitigate OOM attacks
         responses = mail.create(MAXBUFFER),
-        -- only *unknown* commands go here
-        commands = mail.create(MAXBUFFER),
         escape = nil,
         buffer = "",
         conceal = false,
@@ -441,7 +439,6 @@ function tty:runCommand(cmd)
         end
         return
     end
-    self.commands:push(cmd)
 end
 
 ---@param c string
@@ -760,10 +757,6 @@ function tty:read(action)
 
     self:unlock()
     return inputBuffer
-end
-
-function tty:popCustomCommand()
-    return self.commands:pop()
 end
 
 KOCOS.tty = tty
