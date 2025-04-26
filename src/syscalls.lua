@@ -98,17 +98,22 @@ end
 
 ---@param gpu string
 ---@param keyboard string
-function syscalls.ttyopen(proc, gpu, keyboard)
+function syscalls.ttyopen(proc, gpu, keyboard, config)
     gpu = gpu or component.gpu.address
     keyboard = keyboard or component.keyboard.address
     assert(proc.ring <= 1, "permission denied")
 
     local graphics = component.proxy(gpu)
-    if not graphics.getScreen() then
-        graphics.bind(component.screen.address)
+    -- TODO: support kocos components from KVM
+    if graphics.type == "gpu" then
+        if not graphics.getScreen() then
+            local screen = component.screen
+            graphics.bind(screen.address)
+            keyboard = screen.getKeyboards()[1] or "no keyboard"
+        end
     end
 
-    local tty = KOCOS.tty.create(graphics, keyboard)
+    local tty = KOCOS.tty.create(graphics, keyboard, config)
 
     ---@type KOCOS.TTYResource
     local res = {

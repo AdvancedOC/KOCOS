@@ -6,8 +6,8 @@ local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, 
 local clist, cproxy, cinvoke, ctype, attach
 local socket, serve, accept, connect
 
-local function ttyopen()
-    local err, fd = syscall("ttyopen")
+local function ttyopen(gpu, keyboard, config)
+    local err, fd = syscall("ttyopen", gpu, keyboard, config)
     return fd, err
 end
 
@@ -1305,6 +1305,34 @@ function cmds.time(args)
     local start = _OS.computer.uptime()
     cmds[cmd](args)
     printf("Took %.2fs", _OS.computer.uptime() - start)
+end
+
+function cmds.rebindTest()
+    close(stdout)
+    local gpu = _OS.component.gpu.address
+
+    local screens = {}
+    for addr in _OS.component.list("screen") do
+        table.insert(screens, addr)
+    end
+
+    for _, screen in ipairs(screens) do
+        local keyboards = _OS.component.invoke(screen, "getKeyboards")
+        local keyboard = keyboards[1] or "no keyboard"
+
+        local t = ttyopen(gpu, keyboard, {boundTo = screen})
+
+        attach(function()
+            write(t, "\x1b[2J")
+            while true do
+                write(t, "Input: ")
+                local line = read(t, math.huge)
+                write(t, line .. "\n")
+                coroutine.yield()
+            end
+        end, "rebind-" .. screen)
+    end
+    while true do coroutine.yield() end
 end
 
 ---@param a string

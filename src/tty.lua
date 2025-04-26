@@ -23,6 +23,7 @@
 ---@field conceal boolean
 ---@field keysDown {[integer]: boolean}
 ---@field readImmediate boolean
+---@field boundTo? string
 local tty = {}
 tty.__index = tty
 
@@ -95,7 +96,8 @@ end
 local MAXBUFFER = 64*1024
 local TOGGLE_INTERVAL = 0.5
 
-function tty.create(gpu, keyboard)
+function tty.create(gpu, keyboard, config)
+    config = config or {}
     local w, h = gpu.getResolution()
     local t = setmetatable({
         x = 1,
@@ -122,6 +124,7 @@ function tty.create(gpu, keyboard)
         conceal = false,
         keysDown = {},
         readImmediate = false,
+        boundTo = config.boundTo,
     }, tty)
     t:reset()
     return t
@@ -134,13 +137,26 @@ function tty:setCursor(x, y)
 end
 
 function tty:flush()
+    self:sync()
     local l = lib.len(self.buffer)
     self.gpu.set(self.x-l, self.y, self.buffer)
     self.buffer = ""
 end
 
+function tty:sync()
+    if self.gpu.type == "gpu" then
+        if not self.boundTo then return end
+        if self.gpu.getScreen() ~= self.boundTo then
+            self.gpu.bind(self.boundTo)
+            self.gpu.setForeground(self.fg)
+            self.gpu.setBackground(self.bg)
+        end
+    end
+end
+
 function tty:hideCursor()
     if self.isCursorShown then
+        self:sync()
         local c = self.gpu.get(self.x, self.y)
         self.gpu.setForeground(self.fg)
         self.gpu.setBackground(self.bg)
@@ -152,6 +168,7 @@ end
 
 function tty:showCursor()
     if not self.isCursorShown then
+        self:sync()
         local c = self.gpu.get(self.x, self.y)
         self.gpu.setForeground(self.bg)
         self.gpu.setBackground(self.fg)
@@ -173,11 +190,13 @@ end
 
 function tty:setForeground(clr)
     self.fg = clr
+    self:sync()
     self.gpu.setForeground(clr)
 end
 
 function tty:setBackground(clr)
     self.bg = clr
+    self:sync()
     self.gpu.setBackground(clr)
 end
 
@@ -213,6 +232,7 @@ end
 function tty:clear()
     self.x = 1
     self.y = 1
+    self:sync()
     self.gpu.fill(1, 1, self.w, self.h, " ")
 end
 
@@ -332,6 +352,7 @@ function tty:processEscape(c)
             if params ~= "" then
                 y = tonumber(params) or 1
             end
+            self:sync()
             self.gpu.fill(1, y, self.w, 1, " ")
         end
 
@@ -453,6 +474,7 @@ function tty:putc(c)
     if self.y > self.h then
         self:flush()
         self.y = self.h
+        self:sync()
         self.gpu.copy(1, 1, self.w, self.h, 0, -1)
         self.gpu.fill(1, self.h, self.w, 1, " ")
     end
@@ -461,6 +483,7 @@ end
 ---@param buffer string
 function tty:write(buffer)
     self:lock()
+    self:sync()
     local l = lib.len(buffer)
     for i=1,l do
         local c = lib.sub(buffer, i, i)
@@ -559,6 +582,7 @@ function tty:read()
         if event == "key_up" then self.keysDown[code] = nil end
 
         if event == "clipboard" then
+            self:sync()
             local data = char:gsub('\n', ' ') -- TODO: make newlines somewhat supported
             if not self.conceal then
                 self:hideCursor()
@@ -572,6 +596,7 @@ function tty:read()
         end
 
         if event == "key_down" then
+            self:sync()
             if code == KOCOS.keyboard.keys.enter then
                 if not self.conceal then
                     self:hideCursor()
