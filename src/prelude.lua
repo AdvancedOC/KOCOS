@@ -220,8 +220,13 @@ end
 
 if KOCOS.loggingTTY then
     KOCOS.defer(function()
-        tty = KOCOS.tty.create(component.gpu, "no keyboard")
-        tty:clear()
+        if component.kocos then
+            tty = KOCOS.tty.create(component.kocos, "no keyboard")
+        else
+            component.gpu.bind(component.screen.address)
+            tty = KOCOS.tty.create(component.gpu, "no keyboard")
+            tty:clear()
+        end
     end, math.huge)
 end
 

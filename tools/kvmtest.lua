@@ -1,23 +1,75 @@
 print("Opening VM...")
-local sys = require("syscalls")
-local vm = sys.kvmopen("OpenOS")
+---@module 'lib.libkvm.kvm'
+local kvm = require("kvm")
+---@type libkvm
+local vm = assert(kvm.open("KVM"))
 
-print("Passing through GPU...")
-assert(sys.ioctl(vm, "pass", component.gpu.address))
+print("Select environment type")
+print("1. GPU hardware")
+print("2. KOCOS TTY sharing")
+local opt = io.read("l")
 
-print("Passing through screen...")
-assert(sys.ioctl(vm, "pass", component.screen.address))
+if opt == "1" then
+    print("Passing through GPU...")
+    vm:pass(component.gpu.address)
 
-print("Passing through keyboard...")
--- Give it its actual address
-assert(sys.ioctl(vm, "pass", component.keyboard.address))
+    print("Passing through screen...")
+    vm:pass(component.screen.address)
 
-print("Passing through EEPROM...")
-local code = component.eeprom.get()
-assert(sys.ioctl(vm, "addBIOS", code, "", component.eeprom.getLabel()))
+    print("Passing through keyboard...")
+    -- Give it its actual address
+    vm:pass(component.keyboard.address)
 
-print("Passing through keyboard events...")
-assert(sys.ioctl(vm, "listen", "key_down", "key_up"))
+    print("Passing through EEPROM...")
+    local code = component.eeprom.get()
+    vm:addBIOS(code, "", component.eeprom.getLabel())
+
+    print("Passing through keyboard events...")
+    vm:listen("key_down", "key_up")
+elseif opt == "2" then
+    print("Adding custom BIOS")
+local kocosBios = [[
+local function loadOS(addr)
+    local p = component.proxy(addr)
+    if p.type == "filesystem" then
+        if not p.exists("/init.lua") then return end
+        local f = p.open("/init.lua", "r")
+        local data = ""
+        while true do
+            local chunk = p.read(f, math.huge)
+            if not chunk then break end
+            data = data .. chunk
+        end
+        p.close(f)
+        return load(data, "=/init.lua")
+    end
+end
+
+local f
+
+for addr in component.list() do
+    f = loadOS(addr)
+    if f then
+        computer.getBootAddress = function()
+            return addr
+        end
+        computer.setBootAddress = function() end
+        break
+    end
+end
+
+f()
+]]
+    vm:addBIOS(kocosBios, "", "KOCOS BIOS")
+
+    print("Adding KOCOS component...")
+    vm:addKocos()
+
+    print("Passing through ocelot component...")
+    vm:pass(component.ocelot.address)
+else
+    error("bad option bruh")
+end
 
 local mounts = {}
 for addr in component.list("filesystem") do
@@ -50,21 +102,37 @@ end
 for _, mount in ipairs(mounts) do
     if enabled[mount.address] then
         printf("Passing through %s...", mount.address)
-        assert(sys.ioctl(vm, "pass", mount.address))
+        vm:pass(mount.address)
     end
 end
 
 while true do
-    if sys.ioctl(vm, "mode") == "halted" then
-        -- Clear TTY
-        io.write("\x1b[2J")
-        io.flush()
+    print("Extra paths to mount")
+    print("Empty to exit")
+    local line = io.read("l")
+    if not line or line == "" then break end
+
+    if io.ftype(line) == "directory" then
+        print("Mounting " .. line .. " as filesystem...")
+        vm:addFilesystem(line, line)
+    else
+        print("Bad path")
+    end
+end
+
+while true do
+    if vm:mode() == "halted" then
+        if opt ~= "2" then
+            -- Clear TTY
+            io.write("\x1b[2J")
+            io.flush()
+        end
         print("Machine halted.")
         os.exit(0)
     end
-    local ok, err = sys.ioctl(vm, "resume")
+    local ok, err = vm:resume()
     if not ok then
-        local trace = sys.ioctl(vm, "traceback", err)
+        local trace = vm:traceback(err)
         print(trace)
         os.exit(1)
     end

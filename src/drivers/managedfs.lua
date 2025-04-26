@@ -89,7 +89,7 @@ end
 
 ---@param path string
 function managedfs:modifiedTime(path)
-    return self.disk.lastModified(path)
+    return self.disk.lastModified(path) / 1000
 end
 
 function managedfs:ioctl(fd, action, ...)

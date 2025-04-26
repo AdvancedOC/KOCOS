@@ -98,7 +98,10 @@ local TOGGLE_INTERVAL = 0.5
 
 function tty.create(gpu, keyboard, config)
     config = config or {}
-    local w, h = gpu.getResolution()
+    local w, h = 0, 0
+    if gpu.type == "gpu" then
+        w, h = gpu.getResolution()
+    end
     local t = setmetatable({
         x = 1,
         y = 1,
@@ -201,6 +204,7 @@ function tty:setBackground(clr)
 end
 
 function tty:reset()
+    if self.gpu.type ~= "gpu" then return end
     self:setForeground(self.defaultFg)
     self:setBackground(self.defaultBg)
     self.conceal = false
@@ -230,6 +234,7 @@ function tty:unlock()
 end
 
 function tty:clear()
+    if self.gpu.type ~= "gpu" then return end -- can't lol
     self.x = 1
     self.y = 1
     self:sync()
@@ -482,6 +487,10 @@ end
 
 ---@param buffer string
 function tty:write(buffer)
+    if self.gpu.type == "kocos" then
+        assert(self.gpu.write(0, buffer))
+        return
+    end
     self:lock()
     self:sync()
     local l = lib.len(buffer)
@@ -529,6 +538,10 @@ end
 
 ---@return string
 function tty:read()
+    if self.gpu.type == "kocos" then
+        return self.gpu.read(1, math.huge)
+    end
+
     local response = self.responses:pop()
     if response then return response end
 

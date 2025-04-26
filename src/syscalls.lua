@@ -440,10 +440,15 @@ local function eventsOf(res)
     if res.kind == "file" then
         ---@cast res KOCOS.FileResource
         return res.file.events
-    end
-    if res.kind == "event" then
+    elseif res.kind == "event" then
         ---@cast res KOCOS.EventResource
         return res.event
+    elseif res.kind == "socket" then
+        ---@cast res KOCOS.SocketResource
+        return res.socket.events
+    elseif res.kind == "vm" then
+        ---@cast res KOCOS.KVMResource
+        return res.vm.signals
     end
 end
 

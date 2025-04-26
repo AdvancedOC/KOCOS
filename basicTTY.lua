@@ -168,7 +168,23 @@ function accept(fd)
     return clientfd, err
 end
 
-local tty = assert(ttyopen())
+local graphics = nil
+local keyboard = nil
+
+if _OS.component.gpu then
+    graphics = _OS.component.gpu
+    local screen = _OS.component.screen
+    graphics.bind(screen.address)
+    keyboard = screen.getKeyboards()[1]
+elseif _OS.component.kocos then
+    graphics = _OS.component.kocos
+    keyboard = "no keyboard"
+end
+
+assert(graphics, "unable to find rendering hardware")
+assert(keyboard, "unable to find input hardware")
+
+local tty = assert(ttyopen(graphics.address, keyboard))
 
 local stdout = tty
 local stdin = tty
@@ -676,6 +692,14 @@ function cmds.fetch(...)
     table.insert(data, "Components: " .. #assert(clist(true)))
     table.insert(data, "Threads: " .. info.threadCount)
     table.insert(data, string.format("Battery: %.2f%%", info.energy / info.maxEnergy * 100))
+
+    local kocos = _OS.component.kocos
+    if kocos then
+        table.insert(data, "VM Host: " .. kocos.getHost())
+        table.insert(data, "VM Hypervisor: " .. kocos.getHypervisor())
+        table.insert(data, "Host Kernel: " .. kocos.getKernel())
+    end
+
     do
         local color = ""
         for i=0,7 do
