@@ -180,13 +180,15 @@ function kvm:addFilesystem(directory, label, slot, readOnly)
                     error("unable to open in write mode")
                 end
                 path = assert(getPath(path), "invalid path")
-                if mode == "w" then
+                if mode ~= "r" then
                     if sys.ftype(path) == "missing" then
                         local ok, err = sys.touch(path, 2^16-1)
+                        if err then _K.log("Error: %s", err) end
                         assert(ok, err)
                     end
                 end
                 local f, err = sys.open(path, mode)
+                if err then _K.log("Error: %s", err) end
                 assert(f, err)
                 -- TODO: handle OOM case
                 fdMap[f] = f

@@ -65,6 +65,11 @@ Lets fix that with a controlled shock.
 `a` should return a stream.
 `i` should return a mutable buffer with inserting.
 
+# OKFFS test suite improvements
+
+Testing `w` and `a` modes.
+Testing `erase` once implemented.
+
 # OKFFS mode changes
 
 Add a `erase` syscall to erase bytes starting at the file position.
