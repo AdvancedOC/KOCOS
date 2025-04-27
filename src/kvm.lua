@@ -325,7 +325,7 @@ end
 function kvm.add(vm, component, addr)
     addr = addr or kvm.uuid()
     vm.components[addr] = component
-    vm.signals.push("component_added", component)
+    vm.signals.push("component_added", addr, component.type)
     return addr
 end
 
@@ -351,12 +351,13 @@ function kvm.passthrough(vm, address, raddr)
 end
 
 ---@param vm KOCOS.KVM
+---@param component string
 function kvm.remove(vm, component)
     if vm.components[component] then
+        vm.signals.push("component_removed", component, vm.components[component].type)
         vm.components[component].close()
     end
     vm.components[component] = nil
-    vm.signals.push("component_removed", component)
     return true
 end
 
@@ -609,7 +610,8 @@ end
 
 function kvm.ioctl.remove(proc, vm, component)
     checkArg(1, component, "string")
-    return kvm.remove(vm, component)
+    kvm.remove(vm, component)
+    return true
 end
 
 function kvm.ioctl.address(proc, vm)
