@@ -1,14 +1,6 @@
 # More Advanced TTY
 
 The ability to move the cursor is pretty damn important
-Also tab for autocomplete.
-
-## Autocomplete
-
-Reading the TTY with `-1` as the length enables autocomplete.
-This means when the user presses tab, instead of doing nothing, it will send the line with the tab character where you pressed tab.
-The shell will then go in autocomplete mode, where the next write will then be written, with the tab character specifying
-where the cursor should be placed.
 
 # Radio sockets
 
@@ -24,23 +16,6 @@ Fully supports async I/O.
 
 We gotta complete `syscalls` too
 
-# Audio System
-> KOCOS.audio
-
-Audio System which lets you register devices to play notes.
-
-Notes that should be supported:
-- harp (default noteblock)
-- basedrum
-- bass
-- bell
-- chime
-- flute
-- guitar
-- hat
-- pling
-- snare
-- xylophone
 
 # Complete devfs
 
@@ -158,27 +133,36 @@ filesystem.mount(uuid, "/etc/stuff")
 
 A lot of RAM optimizations to be made, such as:
 - _SHARED and shared storage between processes (liblua can use that to recycle stuff)
-- Shared `syscall`. Instead, a global `Context` is made to store the current thread.
+- Shared `syscall`. Instead, `KOCOS.process.current()` is designed to find the current `pid`.
 - Threads stored in a linked list, with new ones inserted at the start.
 - Lazily created interrupt queue. Created when listeners get made.
 
-## New syscalls to circumvent new challenges
+## How to find the current process
 
-### klisten and kforget
+To avoid callbacks causing unfortunate mistakes, we need `KOCOS.process.current()` to get the current pid of the running process.
+The only reliable source for this information is the source locations returned by `debug.getinfo`.
+The way we do it is simple, every process' `load` annotates the pid in the source location. Say it is set to `abc`, then it would be changed to `pid0-abc`.
+Then when we query, we check if `debug.getinfo(level, "S").source` matches `^pid(%d+)%-`, in which case we grab that match and parse it to get the pid.
+To prevent awful stack traces, we patch `debug.traceback()` to replace `pid%d+%-%:([^%s]+)` with the first capture (aka remove the dumb pids.
+This would be a mostly transparent change. This opens the door to more effective caching of libraries, but also letting `KOCOS.process.current()` ignore
+certain pids while tracing for drivers to be able to identify *their* callers.
 
-Add a listener to kernel events
-```lua
-local l = klisten(function()
-    
-end)
+This feature would also automatically make KOCOS 100x cooler.
 
--- continue running
+# Audio System
+> KOCOS.audio
 
-kforget(l) -- also ran automatically by the kernel
-```
+Audio System which lets you register devices to play notes.
 
-### Note on drivers
-
-The context is not switched when a driver runs. Thus, any syscalls they do are in the context of the caller.
-The caller can be very unexpected.
-If contexts were temporarily switched, it'd be a security hole.
+Notes that should be supported:
+- harp (default noteblock)
+- basedrum
+- bass
+- bell
+- chime
+- flute
+- guitar
+- hat
+- pling
+- snare
+- xylophone
