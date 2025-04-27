@@ -174,12 +174,22 @@ function kvm.init(vm)
         return {}
     end
 
+    ---@param err string
+    local function trimLoc(err)
+        return err:gsub("[^:]+:[^:]+:%s", "", 1)
+    end
+
     function component.invoke(comp, method, ...)
         checkArg(1, comp, "string")
         local c = vm.components[comp]
         assert(c, "no such component")
         assert(c.methods[method], "no such method")
-        return c.methods[method](...)
+        local t = {xpcall(c.methods[method], trimLoc, ...)}
+        if t[1] then
+            return table.unpack(t, 2)
+        else
+            return nil, t[2]
+        end
     end
 
     function component.list(type, exact)
@@ -315,6 +325,7 @@ end
 function kvm.add(vm, component, addr)
     addr = addr or kvm.uuid()
     vm.components[addr] = component
+    vm.signals.push("component_added", component)
     return addr
 end
 
@@ -345,6 +356,7 @@ function kvm.remove(vm, component)
         vm.components[component].close()
     end
     vm.components[component] = nil
+    vm.signals.push("component_removed", component)
     return true
 end
 

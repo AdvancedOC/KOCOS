@@ -126,7 +126,7 @@ function kvm:addKocos(subenv, files)
             end,
             getHostEnv = function(env)
                 if subenv then return subenv[env] end
-                return assert(os.getenv(env))
+                return os.getenv(env)
             end,
             getName = function()
                 return self:ioctl("name")
