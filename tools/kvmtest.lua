@@ -68,7 +68,22 @@ f()
     vm:addBIOS(kocosBios, "", "KOCOS BIOS")
 
     print("Adding KOCOS component...")
-    vm:addKocos()
+    vm:addKocos {
+        componentFetch = component.list,
+        validateMount = function(path)
+            printf("Allow mounting of %s? [y/N]", path)
+            local l = io.read("l")
+            if not l then return false, "nah" end
+            return l:lower():sub(1, 1) == "y"
+        end,
+        validatePassthrough = function(address)
+            if not component.type(address) then return false, "missing" end
+            printf("Allow mounting of %s (%s)? [y/N]", address, component.type(address))
+            local l = io.read("l")
+            if not l then return false, "nah" end
+            return l:lower():sub(1, 1) == "y"
+        end,
+    }
 else
     error("bad option bruh")
 end

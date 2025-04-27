@@ -98,16 +98,26 @@ function kvm:pass(address)
     return assert(self:ioctl("pass", address))
 end
 
+---@class libkvm.kocosConfig
+---@field files? {[integer]: integer}
+---@field subenv? {[string]: string}
+---@field componentFetch? fun(type?: string, exact?: boolean): {[string]: string}
+---@field validatePassthrough? fun(address: string): boolean, string?
+---@field validateMount? fun(path: string): boolean, string?
+
 -- Adds a KOCOS virtual component
 -- The KOCOS virtual component supports querying host information
 -- And reading and writing from actual stdout/stdin of the host.
 -- It is often used for TTY sharing between the host and virtual machine.
 -- It is supported by the KOCOS kernel and most operating systems which use it.
----@param subenv? {[string]: string}
----@param files? {[integer]: integer}
+---@param config? libkvm.kocosConfig
 ---@return string
-function kvm:addKocos(subenv, files)
-    files = files or {[0]=0, [1]=1, [2]=2}
+function kvm:addKocos(config)
+    config = config or {}
+    local files = config.files or {[0]=0, [1]=1, [2]=2}
+    local subenv = config.subenv
+    local validatePassthrough = config.validatePassthrough or function() return false, "permission denied" end
+    local validateMount = config.validateMount or function() return false, "permission denied" end
     return self:add {
         type = "kocos",
         slot = -1,
@@ -130,6 +140,35 @@ function kvm:addKocos(subenv, files)
             end,
             getName = function()
                 return self:ioctl("name")
+            end,
+            getHostComponents = config.componentFetch or function()
+                return setmetatable({}, {__call = function() end})
+            end,
+            requestPassthrough = function(address)
+                local ok, reason = validatePassthrough(address)
+                if not ok then return nil, reason end
+                return self:pass(address)
+            end,
+            requestMount = function(path)
+                local ok, reason = validateMount(path)
+                if not ok then return nil, reason end
+                if io.ftype(path) == "directory" then
+                    return self:addFilesystem(path, path)
+                elseif io.ftype(path) == "file" then
+                    local fd = assert(sys.open(io.resolved(path), "w"))
+                    return self:addDrive(fd, path, nil, true)
+                else
+                    error("missing")
+                end
+            end,
+            hasStdio = function()
+                -- stdout, stdin and stderr
+                return files[0] ~= nil and files[1] ~= nil and files[2] ~= nil
+            end,
+            remove = function(address)
+                checkArg(1, address, "string")
+                self:remove(address)
+                return true
             end,
             write = function(fd, data)
                 if not files[fd] then error("bad file descriptor") end

@@ -2,6 +2,9 @@
 
 The ability to move the cursor is pretty damn important
 
+And the ability to change TTY resolution and query maximum resolution.
+Genuinely important features trust me.
+
 # Radio sockets
 
 "radio" protocol, with "packet" subprotocol.
@@ -10,12 +13,9 @@ Fully supports async I/O.
 
 # more liblua modules
 
-`terminal` to provide an API around escape codes.
-`keyboard` to provide keyboard codes.
 `socket` to provide convenient wrappers around sockets.
 
 We gotta complete `syscalls` too
-
 
 # Complete devfs
 
@@ -30,17 +30,21 @@ Ability to actually use the damn thing.
 A simple syscall to change a permission at a path.
 Requires write permissions for that path.
 
-# Fix okffs_ro
-
-It appears the portable OKFFS implementation is broken.
-Lets fix that with a controlled shock.
-
 # mopen mode changes
 
 `r` should return a read-only buffer.
 `w` should return a mutable buffer with overwriting.
 `a` should return a stream.
 `i` should return a mutable buffer with inserting.
+
+# Release v0.0.1
+
+At this point the kernel is suitable for an initial alpha release.
+
+# Fix okffs_ro
+
+It appears the portable OKFFS implementation is broken.
+Lets fix that with a controlled shock.
 
 # OKFFS test suite improvements
 
@@ -96,34 +100,6 @@ hi
 # > exit
 ~ > # back to host
 ```
-
-## KVM command's OS interop API
-
-### Signals
-
-```lua
--- In OpenOS
-
-event.push("kocos_mount", "/etc/stuff")
--- suppose the response was instantly pushed. In a real OS, wait for this signal.
-local _, data, err = event.pop("kocos_response")
--- The data is just the uuid of the component added. It is nil if rejected.
-local uuid = assert(data, err)
--- We asked to mount a folder, so we get a filesystem component.
--- We can mount it in the VM's virtual filesystem.
--- Now those 2 are bound together.
-filesystem.mount(uuid, "/etc/stuff")
-```
-
-```sh
-# Responses are
-"kocos_response" <data> <err>
-# Things VM can do
-"kocos_mount" <path> # Adds filesystem or drive component. Response data is address. Path can be to folder for filesystem and to file for drive.
-"kocos_remove" <component address> # Removes component. Response data is a boolean
-"kocos_vgpu" # Adds a VGPU. Reponse data is address.
-```
-
 ## libkvm and kvm
 
 `/lib/libkvm.so` will provide a convenient wrapper for the KVM system.

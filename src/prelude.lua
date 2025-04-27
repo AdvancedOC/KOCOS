@@ -136,6 +136,11 @@ function KOCOS.bsod()
     if KOCOS.rebootOnCrash then
         allPanicsText = allPanicsText .. "\nSYSTEM WILL REBOOT AUTOMATICALLY"
     end
+    local kocos
+    if component.kocos and component.kocos.hasStdio() then
+        kocos = component.kocos
+        kocos.write(0, "\n\x1b[97;44m\x1b[2J" .. allPanicsText .. "\x1b[0m")
+    end
     local gpu = component.gpu
     for _, screen in component.list("screen") do
         gpu.bind(screen)
@@ -167,18 +172,24 @@ function KOCOS.bsod()
             local event = computer.pullSignal(start + 5 - computer.uptime())
             if event == "key_down" then break end
         end
+        if kocos then
+            kocos.write(0, "\x1b[2J")
+        end
         computer.shutdown(true)
     else
         repeat
             local event = computer.pullSignal()
         until event == "key_down"
     end
+    if kocos then
+        kocos.write(0, "\x1b[2J")
+    end
 end
 
 function KOCOS.loop()
     local lastPanicked = false
     local function processEvents()
-        KOCOS.event.process(0.05)
+        KOCOS.event.process(0)
     end
     local function runProcesses()
         KOCOS.process.run()
@@ -220,7 +231,7 @@ end
 
 if KOCOS.loggingTTY then
     KOCOS.defer(function()
-        if component.kocos then
+        if component.kocos and component.kocos.hasStdio() then
             tty = KOCOS.tty.create(component.kocos, "no keyboard")
         else
             component.gpu.bind(component.screen.address)

@@ -2,6 +2,7 @@ local lon = {}
 
 ---@param s string
 function lon.isValidIndentifier(s)
+    if type(s) ~= "string" then return false end
     ---@param c string
     ---@param set string
     local function is(c, set)

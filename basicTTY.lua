@@ -207,10 +207,14 @@ local function readLine()
         if string.find(data, "\t") then
             assert(write(stdin, "autocomplete unsupported\t"))
             data = ""
-        elseif data == "\x11" and #history > 0 then
-            local l = history[historyIndex-1] or ""
-            historyIndex = math.max(historyIndex - 1, 0)
-            assert(write(stdin, l .. "\t"))
+        elseif data == "\x11" then
+            if #history > 0 then
+                local l = history[historyIndex-1] or ""
+                historyIndex = math.max(historyIndex - 1, 0)
+                assert(write(stdin, l .. "\t"))
+            else
+                assert(write(stdin, "\t"))
+            end
             data = ""
         elseif data == "\x12" then
             local l = history[historyIndex+1] or ""
@@ -733,7 +737,8 @@ function cmds.fetch(...)
     for mountpoint in _K.fs.mountedPartitions() do
         local mountInfo = assert(stat("/" .. mountpoint))
         if mountInfo.total > 0 then
-            table.insert(data, string.format("Disk (%s): %s / %s (%.2f%%)", "/" .. mountpoint, mountInfo.used, mountInfo.total, mountInfo.used / mountInfo.total * 100))
+            table.insert(data, string.format("Disk (%s): %s / %s (%.2f%%)", "/" .. mountpoint,
+                string.memformat(mountInfo.used), string.memformat(mountInfo.total), mountInfo.used / mountInfo.total * 100))
         end
     end
 
@@ -1378,6 +1383,15 @@ function cmds.rebindTest()
         end, "rebind-" .. screen)
     end
     while true do coroutine.yield() end
+end
+
+-- We don't support *changing* resolution rn so...
+function cmds.resolution(args)
+    write(stdout, "\x1b[5n")
+    local back = read(stdin, math.huge)
+
+    local _, _, w, h = string.find(back, "(%d+);(%d+)")
+    printf("%s x %s", w or "unknown", h or "unknown")
 end
 
 ---@param a string

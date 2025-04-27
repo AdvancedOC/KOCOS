@@ -2,11 +2,11 @@ local router = {}
 
 router.drivers = {}
 
-router.events = KOCOS.event.create(KOCOS.maxEventBacklog)
+router.events = KOCOS.event
 
-router.EVENT_CONNECT = "connect"
-router.EVENT_DISCONNECT = "disconnect"
-router.EVENT_PACKET = "packet"
+router.EVENT_CONNECT = "router_connect"
+router.EVENT_DISCONNECT = "router_disconnect"
+router.EVENT_PACKET = "router_packet"
 
 ---@class KOCOS.Network
 ---@field uuid string
