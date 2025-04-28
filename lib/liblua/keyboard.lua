@@ -166,7 +166,7 @@ function keyboard.charToCode(n)
 end
 
 function keyboard.isPrintable(char)
-    return type(char) == "number" and char >= 32 and char <= 126
+    return type(char) == "number" and ((char >= 32 and char <= 126) or (char > 127))
 end
 
 return keyboard

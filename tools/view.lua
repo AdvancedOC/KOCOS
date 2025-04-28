@@ -20,14 +20,52 @@ end
 
 local lines = {}
 
-local function getFileContents()
-    local f = assert(io.open(path, "rb"))
-    for line in f:lines() do
-        table.insert(lines, line)
+---@type buffer?
+local stream = assert(io.open(path, "rb"))
+local chunkSize = 1024
+local lineBuffer = ""
+
+stream:seek("set", 0)
+
+local function addLine(line)
+    line = line:gsub(".", function(c)
+        if c:byte() > 127 or not keyboard.isPrintable(c:byte()) then return "^@" end
+        return c
+    end)
+    table.insert(lines, line)
+    local i = #lines
+
+    local y = i - oy
+    if y >= 1 and y < h then
+        terminal.set(1, y, line:sub(ox+1))
+        if cy == y then
+            showCursor()
+            terminal.reset()
+        end
     end
 end
 
-getFileContents()
+local function getMoreFileContents()
+    if not stream then return end
+    ---@type string?
+    local chunk = stream:read(chunkSize)
+    if not chunk then
+        if #lineBuffer > 0 then addLine(lineBuffer) end
+        stream:close()
+        stream = nil
+        return
+    end
+    lineBuffer = lineBuffer .. chunk
+    while true do
+        local lineFeed = lineBuffer:find("\n")
+        if not lineFeed then break end -- need more data
+        if lineFeed then
+            local line = lineBuffer:sub(1, lineFeed-1)
+            lineBuffer = lineBuffer:sub(lineFeed+1)
+            addLine(line)
+        end
+    end
+end
 
 terminal.clear()
 
@@ -41,11 +79,13 @@ while true do
     terminal.reset()
     terminal.invert()
     terminal.fill(1, h, w, 1, " ")
-    terminal.set(1, h, string.format("%d %d %s | q to quit", cx+ox, cy+oy, path))
+    terminal.set(1, h, string.format("%d %d %s | q to quit | %d lines", cx+ox, cy+oy, path, #lines))
     terminal.reset()
 
+    getMoreFileContents()
+
     terminal.keyboardMode(true)
-    local event, _, char, code, mods = terminal.queryEvent()
+    local event, _, char, code, mods = terminal.queryEvent(true)
     if event == "key_down" then
         if code == keyboard.keys.up then
             hideCursor()
