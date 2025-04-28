@@ -32,6 +32,20 @@ Requires write permissions for that path.
 
 At this point the kernel is suitable for an initial alpha release.
 
+# Shrink some things
+
+Refactor the kernel's code a bit to reduce code size post-minification.
+The goal is to get the release builds to be smaller, both compressed and decompressed.
+
+# FAT16 driver
+
+Basic FAT16.
+No `i` mode or `erase`.
+
+# Support pasting in TTY keyboard mode
+
+Minor thing but like kinda cool
+
 # Fix okffs_ro
 
 It appears the portable OKFFS implementation is broken.

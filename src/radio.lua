@@ -7,12 +7,11 @@ radio.ADDR_LOOP = "00000000-0000-0000-0000-000000000000"
 
 Radio Signal (fancier modem_message)
 
-"radio_message" "sender" port "data" distance
+"radio_message" "sender" port "data" distance time
 
 ]]
 
 radio.RADIO_EVENT = "radio_message"
-radio.RADIO_TUNNEL_PORT = -1
 
 function radio.signal(sender, port, data, distance)
     KOCOS.event.push(radio.RADIO_EVENT, sender, port, data, distance, computer.uptime())
@@ -26,14 +25,15 @@ function radio.primaryModem()
 end
 
 -- modem_message(receiverAddress: string, senderAddress: string, port: number, distance: number
-function radio.handler(event, receiver, sender, port, distance, data)
+function radio.handler(event, receiver, sender, port, distance, data, tunnelPort)
     if event ~= "modem_message" then return end
+    if type(data) ~= "string" then return end
     if component.type(receiver) == "tunnel" then
-        radio.signal(sender, radio.RADIO_TUNNEL_PORT, data, distance)
+        if type(tunnelPort) ~= "number" then return end
+        radio.signal(receiver, tunnelPort, data, distance)
         return
     end
     if receiver ~= radio.primaryModem() then return end
-    if type(data) ~= "string" then return end
     radio.signal(sender, port, data, distance)
 end
 
@@ -45,7 +45,7 @@ function radio.send(addr, port, data)
     end
     if component.type(addr) == "tunnel" then
         local t = component.proxy(addr)
-        return t.send(addr, data)
+        return t.send(addr, data, port)
     end
     local m = radio.primaryModem()
     if not m then return false, "offline" end
@@ -53,8 +53,9 @@ function radio.send(addr, port, data)
     if addr == radio.ADDR_BROADCAST then
         for tunnel in component.list("tunnel") do
             local t = component.proxy(tunnel)
-            t.send(addr, data)
+            t.send(data, port)
         end
+        radio.signal(m, port, data, 0)
         return modem.broadcast(port, data)
     end
     return modem.send(addr, port, data)
@@ -79,6 +80,12 @@ function radio.close(p)
     if not m then return false, "offline" end
     local modem = component.proxy(m)
     return modem.close(p)
+end
+
+function radio.pop(port)
+    return KOCOS.event.popWhere(function(event, sender, p, data, distance, time)
+        return event == radio.RADIO_EVENT and p == port
+    end)
 end
 
 radio.listener = KOCOS.event.listen(radio.handler)

@@ -9,6 +9,8 @@ DevFS structure:
 /dev/zero
 /dev/random
 /dev/hex
+/dev/eeprom
+/dev/eeprom-data
 ]]
 
 ---@class KOCOS.DevFS
@@ -44,7 +46,7 @@ function devfs:addProxy(proxy)
 end
 
 function devfs:open(path, mode)
-    if mode == "a" then return nil, "bad mode" end -- it just simply doesn't work
+    if mode == "i" then return nil, "bad mode" end -- it just simply doesn't work
     if path == "zero" then
         return self:addProxy {
             address = "zero",
@@ -69,6 +71,31 @@ function devfs:open(path, mode)
             type = "devfs:hex",
         }
     end
+    if path == "eeprom" then
+        local eeprom = component.eeprom
+        if mode == "w" then
+            eeprom.set("") -- unbelievably unsafe
+        end
+        return self:addProxy {
+            address = eeprom.address,
+            type = "devfs:eeprom",
+            current = 0,
+            eeprom = eeprom,
+        }
+    end
+    if path == "eeprom-data" then
+        local eeprom = component.eeprom
+        if mode == "w" then
+            eeprom.setData("") -- unbelievably unsafe
+        end
+        return self:addProxy {
+            address = eeprom.address,
+            type = "devfs:eeprom-data",
+            current = 0,
+            eeprom = eeprom,
+        }
+    end
+    if mode == "a" then return nil, "bad mode" end -- it just simply doesn't work on drives and partitions
     for addr in component.list("drive", true) do
         if path == "drives/" .. formatUUID(addr) then
             local proxy = component.proxy(addr)
@@ -136,6 +163,26 @@ end
 
 function devfs:write(fd, data)
     local proxy = assert(self.handles[fd], "bad file descriptor")
+    if proxy.type == "devfs:eeprom" then
+        local eeprom = proxy.eeprom
+        local src = eeprom.get()
+        if not src then return end -- EEPROM probably removed
+        src = src:sub(1, proxy.current) .. data .. src:sub(proxy.current+1)
+        if #src > eeprom.getSize() then return false, "out of space" end
+        eeprom.set(src)
+        proxy.current = proxy.current + #data
+        return true
+    end
+    if proxy.type == "devfs:eeprom-data" then
+        local eeprom = proxy.eeprom
+        local src = eeprom.getData()
+        if not src then return end -- EEPROM probably removed
+        src = src:sub(1, proxy.current) .. data .. src:sub(proxy.current+1)
+        if #src > eeprom.getDataSize() then return false, "out of space" end
+        eeprom.setData(src)
+        proxy.current = proxy.current + #data
+        return true
+    end
     return nil, "bad file descriptor"
 end
 
@@ -166,6 +213,28 @@ function devfs:read(fd, limit)
         end
         return s
     end
+    if proxy.type == "devfs:eeprom" then
+        local eeprom = proxy.eeprom
+        local data = eeprom.get()
+        if not data then return end -- EEPROM probably removed
+        -- Yes, eeprom contents is not as big as the file...
+        if limit == math.huge then limit = #data end
+        local chunk = data:sub(proxy.current+1, proxy.current+limit)
+        proxy.current = proxy.current + #chunk
+        if #chunk == 0 then return end
+        return chunk
+    end
+    if proxy.type == "devfs:eeprom-data" then
+        local eeprom = proxy.eeprom
+        local data = eeprom.getData()
+        if not data then return end -- EEPROM probably removed
+        -- Yes, eeprom contents is not as big as the file...
+        if limit == math.huge then limit = #data end
+        local chunk = data:sub(proxy.current+1, proxy.current+limit)
+        proxy.current = proxy.current + #chunk
+        if #chunk == 0 then return end
+        return chunk
+    end
     if proxy.type == "drive" then
         local data = readBuffer(proxy.address, proxy.current, limit)
         if data then proxy.current = proxy.current + #data end
@@ -181,8 +250,14 @@ end
 
 function devfs:seek(fd, whence, off)
     local proxy = assert(self.handles[fd], "bad file descriptor")
-    if proxy.type == "drive" or proxy.type == "partition" then
-        local size = proxy.type == "drive" and proxy.getCapacity() or proxy.paritition.byteSize
+    if proxy.type == "drive" or proxy.type == "partition" or proxy.type == "devfs:eeprom" or proxy.type == "devfs:eeprom-data" then
+        local size = 0
+        if proxy.type == "drive" then
+            size = proxy.getCapacity()
+        end
+        if proxy.type == "partition" then
+            size = proxy.paritition.byteSize
+        end
         local cur = proxy.current
         if whence == "set" then
             cur = off
@@ -230,6 +305,8 @@ function devfs:type(path)
     if path == "zero" then return "file" end
     if path == "random" then return "file" end
     if path == "hex" then return "file" end
+    if path == "eeprom" then return "file" end
+    if path == "eeprom-data" then return "file" end
     if path == "components" then return "directory" end
     if path == "parts" then return "directory" end
     if path == "drives" then return "directory" end
@@ -262,6 +339,8 @@ function devfs:list(path)
             "zero",
             "random",
             "hex",
+            "eeprom",
+            "eeprom-data",
             "components",
             "parts",
             "drives",
@@ -314,6 +393,16 @@ function devfs:isReadOnly()
 end
 
 function devfs:size(path)
+    if path == "eeprom" then
+        local eeprom = component.eeprom
+        if not eeprom then return 0 end
+        return eeprom.getSize()
+    end
+    if path == "eeprom-data" then
+        local eeprom = component.eeprom
+        if not eeprom then return 0 end
+        return eeprom.getDataSize()
+    end
     -- For drives and filesystems, the capacity is the size
     for addr, type in component.list() do
         if path == "components/" .. type .. "/" .. formatUUID(addr) then

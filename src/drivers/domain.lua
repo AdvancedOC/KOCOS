@@ -136,6 +136,7 @@ end
 ---@param socket KOCOS.NetworkSocket
 ---@param data string
 function domain:async_write(socket, data)
+    assert(socket.state == "connected", "bad state")
     local server = servers[self.server]
     if not server then
         socket.events.push(KOCOS.network.EVENT_WRITE_RESPONSE, "", false, "connection closed")
@@ -175,6 +176,7 @@ end
 ---@param socket KOCOS.NetworkSocket
 ---@param len integer
 function domain:read(socket, len)
+    assert(socket.state == "connected", "bad state")
     while true do
         if socket.events.queued(KOCOS.network.EVENT_CLOSE_RESPONSE) then
             return nil

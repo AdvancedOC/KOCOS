@@ -50,15 +50,16 @@ local paramPattern = "[\x30-\x3F]+"
 ---@type string[]
 local escapesBuffer = {}
 
+---@param nonblocking? boolean
 ---@return string?
-function terminal.readEscape()
+function terminal.readEscape(nonblocking)
     if #escapesBuffer == 0 then
         while true do
             local data = sys.read(1, math.huge)
             for escape in string.gmatch(data, escapePattern) do
                 table.insert(escapesBuffer, escape)
             end
-            if data ~= "" then break end -- not waiting for data
+            if data ~= "" or nonblocking then break end -- not waiting for data
             -- TODO: system yield
             coroutine.yield()
         end
@@ -83,9 +84,10 @@ function terminal.isSuperDown(modifiers)
 end
 
 -- Returns a parsed representation of an escape code
+---@param nonblocking? boolean
 ---@return string?, ...
-function terminal.queryEvent()
-    local escape = terminal.readEscape()
+function terminal.queryEvent(nonblocking)
+    local escape = terminal.readEscape(nonblocking)
     if not escape then return end -- no escapes to parse
     local term = escape:sub(-1, -1)
     local param = string.match(escape, paramPattern)

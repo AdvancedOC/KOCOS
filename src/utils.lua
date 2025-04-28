@@ -1,3 +1,6 @@
+---@generic T
+---@param t T
+---@return T
 function table.copy(t)
     if type(t) == "table" then
         local nt = {}
@@ -8,6 +11,9 @@ function table.copy(t)
     end
 end
 
+---@param inputstr string
+---@param sep string
+---@return string[]
 function string.split(inputstr, sep)
   if sep == nil then
     sep = "%s"
@@ -34,18 +40,30 @@ function string.memformat(amount, spacing)
     return string.format("%.2f%s%s", amount, spacing, memunits[unit])
 end
 
+---@param s string
+---@param prefix string
 function string.startswith(s, prefix)
     return s:sub(1, #prefix) == prefix
 end
 
+---@param s string
+---@param suffix string
 function string.endswith(s, suffix)
     return s:sub(-#suffix) == suffix
 end
 
+---@param x number
+---@param min number
+---@param max number
 function math.clamp(x, min, max)
     return math.min(max, math.max(x, min))
 end
 
+---@param x number
+---@param min1 number
+---@param max1 number
+---@param min2 number
+---@param max2 number
 function math.map(x, min1, max1, min2, max2)
     return min2 + ((x - min1) / (max1 - min1)) * (max2 - min2)
 end

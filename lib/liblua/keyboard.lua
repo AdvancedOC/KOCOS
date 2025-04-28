@@ -149,7 +149,8 @@ function keyboard.isControl(char)
   return type(char) == "number" and (char < 0x20 or (char >= 0x7F and char <= 0x9F))
 end
 
--- Our custom extension
+-- Our custom extensions
+
 -- This is useful for terminal.queryEvent()
 ---@param n integer
 function keyboard.charToCode(n)
@@ -162,6 +163,10 @@ function keyboard.charToCode(n)
     }
     c = map[c] or c
     return keyboard.keys[c] or 0
+end
+
+function keyboard.isPrintable(char)
+    return type(char) == "number" and char >= 32 and char <= 126
 end
 
 return keyboard

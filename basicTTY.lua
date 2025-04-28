@@ -1375,7 +1375,7 @@ function cmds.rebindTest()
         attach(function()
             local w = math.random(1, 160)
             local h = math.random(1, 50)
-            assert(write(t, "\x1b]KGsetResolution " .. tostring(w) .. " " .. tostring(h) .. "\a"))
+            assert(write(t, "\x1b]KGsetResolution\t" .. tostring(w) .. "\t" .. tostring(h) .. "\a"))
             assert(write(t, "\x1b[2J"))
             while true do
                 assert(write(t, "Input: "))
@@ -1405,7 +1405,7 @@ function cmds.resolution(args)
     else
         local w = assert(tonumber(args[1]), "bad width")
         local h = assert(tonumber(args[2]), "bad height")
-        write(stdout, "\x1b]KGsetResolution " .. tostring(w) .. " " .. tostring(h) .. "\a")
+        write(stdout, "\x1b]KGsetResolution\t" .. tostring(w) .. "\t" .. tostring(h) .. "\a")
     end
 end
 

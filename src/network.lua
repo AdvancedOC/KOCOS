@@ -108,7 +108,6 @@ end
 ---@return integer
 -- Returns how many bytes were written
 function network.write(socket, data)
-    assert(socket.state == "connected", "not connected")
     return socket.manager:write(socket, data)
 end
 
@@ -124,7 +123,6 @@ end
 ---@param len integer
 ---@return string?
 function network.read(socket, len)
-    assert(socket.state == "connected", "not connected")
     return socket.manager:read(socket, len)
 end
 

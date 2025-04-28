@@ -189,7 +189,7 @@ end
 function KOCOS.loop()
     local lastPanicked = false
     local function processEvents()
-        KOCOS.event.process(0)
+        KOCOS.event.process(0.05)
     end
     local function runProcesses()
         KOCOS.process.run()
