@@ -1,9 +1,6 @@
-# More Advanced TTY
+# File Viewer Script
 
-The ability to move the cursor is pretty damn important
-
-And the ability to change TTY resolution and query maximum resolution.
-Genuinely important features trust me.
+`tools/view.lua`
 
 # Radio sockets
 

@@ -113,8 +113,6 @@ function tty.create(gpu, keyboard, config)
         mtx = KOCOS.lock.create(),
         isCursorShown = false,
         cursorToggleTime = 0,
-        defaultFg = stdClrs[37],
-        defaultBg = stdClrs[30],
         fg = stdClrs[37],
         bg = stdClrs[30],
         ansiPalette = table.copy(stdClrs),
@@ -151,6 +149,7 @@ function tty:sync()
         if not self.boundTo then return end
         if self.gpu.getScreen() ~= self.boundTo then
             self.gpu.bind(self.boundTo)
+            self.gpu.setResolution(self.w, self.h)
             self.gpu.setForeground(self.fg)
             self.gpu.setBackground(self.bg)
         end
@@ -205,8 +204,8 @@ end
 
 function tty:reset()
     if self.gpu.type ~= "gpu" then return end
-    self:setForeground(self.defaultFg)
-    self:setBackground(self.defaultBg)
+    self:setForeground(self.ansiPalette[37] or 0xFFFFFF)
+    self:setBackground(self.ansiPalette[30] or 0x000000)
     self.conceal = false
     self.readImmediate = false
 end
@@ -249,6 +248,10 @@ function tty:doGraphicalAction(args)
     local action = pop()
     if action == 0 then
         self:reset()
+    elseif action == 7 then
+        local bg, fg = self.fg, self.bg
+        self:setForeground(fg)
+        self:setBackground(bg)
     elseif action == 8 then
         self.conceal = true
     elseif action == 28 then
@@ -380,12 +383,18 @@ function tty:processEscape(c)
             if params == "5" then
                 self.responses:push("\x1b[" .. tostring(self.w) .. ";" .. tostring(self.h) .. "R")
             end
+            -- non-standard
+            if params == "7" then
+                self:sync()
+                local w, h = self.gpu.maxResolution()
+                self.responses:push("\x1b[" .. tostring(w) .. ";" .. tostring(h) .. "R")
+            end
         end
     elseif start == ']' then
         -- Process as OSC
         self.escape = self.escape .. c
         -- Bell, single character ST and full ST escape are the terminators.
-        local terminators = {"\b", "\x9C", "\x1b\x5C"}
+        local terminators = {"\a", "\x9C", "\x1b\x5C"}
         ---@type string?
         local data = nil
         for _, terminator in ipairs(terminators) do
@@ -408,13 +417,15 @@ function tty:runCommand(cmd)
     if cmd:sub(1,2) == "KG" then
         -- KOCOS Graphics command
         self:sync()
-        local args = string.split(cmd:sub(3), " ")
+        local args = string.split(cmd:sub(3), "\t")
         local op = table.remove(args, 1)
         -- unrecognized is just a no-op
         if op == "set" then
             local x = tonumber(args[1]) or 1
             local y = tonumber(args[2]) or 1
-            local s = table.concat(args, " ", 3)
+            local s = args[3] or ""
+            -- you can't get a character, but you can change color
+            if #s == 0 then s = self.gpu.get(x, y) end
             assert(self.gpu.set(x, y, s))
         end
         if op == "fill" then
@@ -434,6 +445,13 @@ function tty:runCommand(cmd)
             local tx = tonumber(args[5]) or 0
             local ty = tonumber(args[6]) or 0
             assert(self.gpu.copy(x, y, w, h, tx, ty))
+        end
+        if op == "setResolution" then
+            local w = tonumber(args[1]) or self.w
+            local h = tonumber(args[2]) or self.h
+            assert(self.gpu.setResolution(w, h))
+            self.w = w
+            self.h = h
         end
         return
     elseif cmd:sub(1,2) == "KT" then
@@ -609,6 +627,10 @@ function tty:read(action)
 
         if event ~= "key_down" then return "" end
 
+        if code == KOCOS.keyboard.keys.c and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
+            error("interrupted")
+        end
+
         -- KOCOS custom escape sequences cuz yeah
         local keys = KOCOS.keyboard.keys
         local mods = 0
@@ -642,6 +664,7 @@ function tty:read(action)
     -- Handle reading graphically
     self:hideCursor()
     local inputBuffer = ""
+    local cursor
     if self.completed then
         local cx, cy = nil, nil
         for i=1,lib.len(self.completed) do
@@ -649,6 +672,7 @@ function tty:read(action)
             if c == "\t" then
                 cx = self.x
                 cy = self.y
+                cursor = i-1
             else
                 self:putc(c)
                 inputBuffer = inputBuffer .. c
@@ -659,6 +683,8 @@ function tty:read(action)
         self.y = cy or self.y
         self.completed = nil
     end
+    local ex, ey = self.x, self.y
+    local i = cursor or #inputBuffer
     while true do
         if self.cursorToggleTime <= computer.uptime() and not self.conceal then
             self:toggleCursor()
@@ -687,6 +713,8 @@ function tty:read(action)
             if code == KOCOS.keyboard.keys.enter then
                 if not self.conceal then
                     self:hideCursor()
+                    self.x = ex
+                    self.y = ey
                     self:putc('\n')
                     self:flush()
                 end
@@ -694,6 +722,9 @@ function tty:read(action)
                 break
             elseif code == KOCOS.keyboard.keys.c and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
                 if not self.conceal then
+                    self:hideCursor()
+                    self.x = ex
+                    self.y = ey
                     self:putc('^')
                     self:putc('C')
                     self:putc('\n')
@@ -704,12 +735,17 @@ function tty:read(action)
             elseif code == KOCOS.keyboard.keys.d and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
                 if not self.conceal then
                     self:hideCursor()
+                    self.x = ex
+                    self.y = ey
+                    self:hideCursor()
                     self:putc('\n')
                     self:flush()
                 end
                 inputBuffer = inputBuffer .. string.char(4)
                 break
-            elseif code == KOCOS.keyboard.keys.back and #inputBuffer > 0 then
+            elseif code == KOCOS.keyboard.keys.back and i > 0 then
+                inputBuffer = lib.sub(inputBuffer, 1, i-1) .. lib.sub(inputBuffer, i+1)
+                i = i - 1
                 if not self.conceal then
                     self:hideCursor()
                     self.x = self.x - 1
@@ -717,12 +753,22 @@ function tty:read(action)
                         self.x = self.w
                         self.y = math.max(self.y - 1, 1)
                     end
+                    local sx, sy = self.x, self.y
+                    for j=i+1, lib.len(inputBuffer) do
+                        self:putc(lib.sub(inputBuffer, j, j))
+                    end
+                    self:flush()
                     self.gpu.set(self.x, self.y, ' ')
+                    ex = self.x
+                    ey = self.y
+                    self.x = sx
+                    self.y = sy
                     self:showCursor()
                 end
-                inputBuffer = lib.sub(inputBuffer, 1, -2)
             elseif code == KOCOS.keyboard.keys.up and action == tty.TTY_ALLOW_AUTOCOMPLETE and not self.conceal then -- conceal disables autocomplete
                 self:hideCursor()
+                self.x = ex
+                self.y = ey
                 for _=1, #inputBuffer do
                     self.x = self.x - 1
                     if self.x < 1 then
@@ -736,6 +782,8 @@ function tty:read(action)
                 break
             elseif code == KOCOS.keyboard.keys.down and action == tty.TTY_ALLOW_AUTOCOMPLETE and not self.conceal then -- conceal disables autocomplete
                 self:hideCursor()
+                self.x = ex
+                self.y = ey
                 for _=1, #inputBuffer do
                     self.x = self.x - 1
                     if self.x < 1 then
@@ -747,8 +795,29 @@ function tty:read(action)
                 inputBuffer = "\x12"
                 self.completed = ""
                 break
+            elseif code == KOCOS.keyboard.keys.left and not self.conceal then
+                if i > 0 then
+                    self:hideCursor()
+                    i = i - 1
+                    self.x = self.x - 1
+                    if self.x < 1 then
+                        self.x = self.w
+                        self.y = math.max(self.y - 1, 1)
+                    end
+                    self:showCursor()
+                end
+            elseif code == KOCOS.keyboard.keys.right and not self.conceal then
+                if i < #inputBuffer then
+                    self:hideCursor()
+                    i = i + 1
+                    self:putc(inputBuffer:sub(i, i))
+                    self:flush()
+                    self:showCursor()
+                end
             elseif code == KOCOS.keyboard.keys.tab and action == tty.TTY_ALLOW_AUTOCOMPLETE and not self.conceal then -- conceal disables autocomplete
                 self:hideCursor()
+                self.x = ex
+                self.y = ey
                 for _=1, #inputBuffer do
                     self.x = self.x - 1
                     if self.x < 1 then
@@ -757,16 +826,25 @@ function tty:read(action)
                     end
                     self.gpu.set(self.x, self.y, ' ')
                 end
-                inputBuffer = inputBuffer .. "\t"
+                inputBuffer = lib.sub(inputBuffer, 1, i) .. "\t" .. lib.sub(inputBuffer, i+1)
                 self.completed = ""
                 break
             elseif not KOCOS.keyboard.isControl(char) then
                 local c = lib.char(char)
-                inputBuffer = inputBuffer .. c
+                inputBuffer = lib.sub(inputBuffer, 1, i) .. c .. lib.sub(inputBuffer, i+1)
+                i = i + 1
                 if not self.conceal then
                     self:hideCursor()
                     self:putc(c)
+                    local x, y = self.x, self.y
+                    for j=i+1, lib.len(inputBuffer) do
+                        self:putc(lib.sub(inputBuffer, j, j))
+                    end
                     self:flush()
+                    ex = self.x
+                    ey = self.y
+                    self.x = x
+                    self.y = y
                     self:showCursor()
                 end
             end

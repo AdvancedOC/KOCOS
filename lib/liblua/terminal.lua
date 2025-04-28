@@ -1,5 +1,6 @@
 local terminal = {}
 local sys = require"syscalls"
+local keyboard = require"keyboard"
 
 function terminal.isatty()
     -- TODO: actually check once possible
@@ -14,6 +15,10 @@ end
 
 function terminal.clear()
     terminal.sendCSI("J", "2")
+end
+
+function terminal.setCursor(x, y)
+    terminal.sendCSI("H", tostring(x), tostring(y))
 end
 
 function terminal.sendOSC(command, terminator)
@@ -85,6 +90,8 @@ function terminal.queryEvent()
     local term = escape:sub(-1, -1)
     local param = string.match(escape, paramPattern)
 
+    local lib = unicode or string
+
     if term == "R" then
         -- response
         return "response", param
@@ -94,7 +101,7 @@ function terminal.queryEvent()
         local mod = n % 16
         n = math.floor(n / 16)
         -- Mimics OC key_down events
-        return "key_down", "terminal", n, 0, mod
+        return "key_down", "terminal", n, keyboard.charToCode(n) or 0, mod
     end
     if term == "\\" then
         local n = parseTerm16(param)
@@ -124,11 +131,18 @@ function terminal.getResolution()
     return tonumber(parts[1]), tonumber(parts[2])
 end
 
+function terminal.maxResolution()
+    terminal.sendCSI("n", "7")
+    local resp = terminal.getResponse()
+    local parts = string.split(resp, ';')
+    return tonumber(parts[1]), tonumber(parts[2])
+end
+
 -- Sends a KG OS command, which is used to perform raw draw operations.
 -- More accurately, this powers set, fill and copy.
 -- setForeground and setBackground use CSI 38 and 48 m.
 function terminal.sendGraphicsCommand(cmd, ...)
-    local args = table.concat({cmd, ...}, " ")
+    local args = table.concat({cmd, ...}, "\t")
     terminal.sendOSC("KG" .. args)
 end
 
@@ -170,8 +184,16 @@ function terminal.copy(x, y, w, h, tx, ty)
     terminal.sendGraphicsCommand("copy", tostring(x), tostring(y), tostring(w), tostring(h), tostring(tx), tostring(ty))
 end
 
+function terminal.setResolution(w, h)
+    terminal.sendGraphicsCommand("setResolution", tostring(w), tostring(h))
+end
+
 function terminal.reset()
     terminal.sendCSI("m", "0")
+end
+
+function terminal.invert()
+    terminal.sendCSI("m", "7")
 end
 
 ---@param n integer

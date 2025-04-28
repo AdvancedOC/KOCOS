@@ -3,6 +3,9 @@ keyboard.pressedChars = {}
 keyboard.pressedCodes = {}
 keyboard.keys = {}
 
+-- According to ocelot
+keyboard.keys.escape         = 0x01
+
 -- Shamelessly robbed from https://github.com/MightyPirates/OpenComputers/blob/master-MC1.7.10/src/main/resources/assets/opencomputers/loot/openos/lib/core/full_keyboard.lua
 keyboard.keys["1"]           = 0x02
 keyboard.keys["2"]           = 0x03

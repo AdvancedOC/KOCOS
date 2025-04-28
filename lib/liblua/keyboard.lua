@@ -149,4 +149,19 @@ function keyboard.isControl(char)
   return type(char) == "number" and (char < 0x20 or (char >= 0x7F and char <= 0x9F))
 end
 
+-- Our custom extension
+-- This is useful for terminal.queryEvent()
+---@param n integer
+function keyboard.charToCode(n)
+    local lib = unicode or string
+    local c = lib.char(n):lower()
+    -- TODO: complete
+    local map = {
+        ["\n"] = "enter",
+        ["\b"] = "back",
+    }
+    c = map[c] or c
+    return keyboard.keys[c] or 0
+end
+
 return keyboard

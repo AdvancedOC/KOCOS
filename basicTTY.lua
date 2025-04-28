@@ -1373,11 +1373,14 @@ function cmds.rebindTest()
         local t = ttyopen(gpu, keyboard, {boundTo = screen})
 
         attach(function()
-            write(t, "\x1b[2J")
+            local w = math.random(1, 160)
+            local h = math.random(1, 50)
+            assert(write(t, "\x1b]KGsetResolution " .. tostring(w) .. " " .. tostring(h) .. "\a"))
+            assert(write(t, "\x1b[2J"))
             while true do
-                write(t, "Input: ")
+                assert(write(t, "Input: "))
                 local line = read(t, math.huge)
-                write(t, line .. "\n")
+                assert(write(t, line))
                 coroutine.yield()
             end
         end, "rebind-" .. screen)
@@ -1387,80 +1390,49 @@ end
 
 -- We don't support *changing* resolution rn so...
 function cmds.resolution(args)
-    write(stdout, "\x1b[5n")
-    local back = read(stdin, math.huge)
+    if #args == 0 then
+        write(stdout, "\x1b[5n")
+        local back = read(stdin, math.huge)
 
-    local _, _, w, h = string.find(back, "(%d+);(%d+)")
-    printf("%s x %s", w or "unknown", h or "unknown")
-end
+        local _, _, w, h = string.find(back, "(%d+);(%d+)")
+        printf("%s x %s", w or "unknown", h or "unknown")
+    elseif args[1] == "max" then
+        write(stdout, "\x1b[7n")
+        local back = read(stdin, math.huge)
 
----@param a string
----@param b string
----@return number
-local function levenshtein(a, b)
-    -- adapted from the haskell example in https://en.wikipedia.org/wiki/Levenshtein_distance#Computation
-    if #a == 0 then return #b end
-    if #b == 0 then return #a end
-
-    local x = a:sub(1, 1)
-    local s = a:sub(2)
-
-    local y = b:sub(1, 1)
-    local t = b:sub(2)
-
-    if x == y then return levenshtein(s, t) end
-
-    return 1 + math.min(
-        levenshtein(a, t),
-        levenshtein(s, b),
-        levenshtein(s, t)
-    )
-end
-
-local function myBeloved()
-    while true do
-        local pi = assert(pinfo())
-        local uid = pi.uid
-        local _, uinfo = syscall("uinfo", uid)
-        local _, hostname = syscall("hostname")
-        write(stdout, string.format("\x1b[0m\x1b[32m%s\x1b[0m@\x1b[96m%s \x1b[34m> \x1b[0m", uinfo.name, hostname))
-        local line = readLine()
-
-        -- Basic program that traverses filesystem
-        local parts = string.split(line, " ")
-
-        local cmd = parts[1] or ""
-        local args = {table.unpack(parts, 2)}
-        if cmds[cmd] then
-            local ok, err = xpcall(cmds[cmd], debug.traceback, args)
-            if not ok then
-                write(stdout, err)
-                write(stdout, "\n")
-            end
-        else
-            local bestMatch
-            local bestDist = math.huge
-            -- TODO: tweak it to be better
-            local typoThreshold = 3
-            for other in pairs(cmds) do
-                local d = levenshtein(cmd, other)
-                if d < bestDist and d < typoThreshold then
-                    bestDist = d
-                    bestMatch = other
-                end
-            end
-            write(stdout, "Unknown command: " .. cmd .. "\n")
-            if bestMatch then
-                write(stdout, "Did you mean " .. bestMatch .. "?\n")
-            end
-        end
-
-        coroutine.yield()
+        local _, _, w, h = string.find(back, "(%d+);(%d+)")
+        printf("%s x %s", w or "unknown", h or "unknown")
+    else
+        local w = assert(tonumber(args[1]), "bad width")
+        local h = assert(tonumber(args[2]), "bad height")
+        write(stdout, "\x1b]KGsetResolution " .. tostring(w) .. " " .. tostring(h) .. "\a")
     end
 end
 
-attach(myBeloved, "command")
-
 while true do
+    local pi = assert(pinfo())
+    local uid = pi.uid
+    local _, uinfo = syscall("uinfo", uid)
+    local _, hostname = syscall("hostname")
+    write(stdout, string.format("\x1b[0m\x1b[32m%s\x1b[0m@\x1b[96m%s \x1b[34m> \x1b[0m", uinfo.name, hostname))
+    local line = readLine()
+
+    -- Basic program that traverses filesystem
+    local parts = string.split(line, " ")
+
+    local cmd = parts[1] or ""
+    local args = {table.unpack(parts, 2)}
+    if cmds[cmd] then
+        local ok, err = xpcall(cmds[cmd], debug.traceback, args)
+        if not ok then
+            write(stdout, err)
+            write(stdout, "\n")
+        end
+    else
+        write(stdout, "Unknown command: " .. cmd .. "\n")
+    end
+
     coroutine.yield()
 end
+
+
