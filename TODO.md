@@ -1,7 +1,5 @@
 # Complete devfs
 
-`/dev/eeprom` and `/dev/eeprom-data`
-
 Ability to write to partitions and drives.
 
 Ability to actually use the damn thing.
@@ -11,6 +9,8 @@ Ability to actually use the damn thing.
 "radio" protocol, with "packet" subprotocol.
 Connection-less, just send and receive.
 Fully supports async I/O.
+
+Still need to be tested.
 
 # Chown syscall
 
