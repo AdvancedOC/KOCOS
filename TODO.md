@@ -32,6 +32,12 @@ Requires write permissions for that path.
 
 At this point the kernel is suitable for an initial alpha release.
 
+# Make TTY support UTF-8
+
+Currently TTY uses Lua patterns instead of a proper escape parser.
+This is fine for some things that can't return unicode, like parsing TTY responses,
+but not great for the TTY's OSC command, which absolutely should be able to receive Unicode.
+
 # Shrink some things
 
 Refactor the kernel's code a bit to reduce code size post-minification.
