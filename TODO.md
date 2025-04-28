@@ -1,19 +1,3 @@
-# File Viewer Script
-
-`tools/view.lua`
-
-# Radio sockets
-
-"radio" protocol, with "packet" subprotocol.
-Connection-less, just send and receive.
-Fully supports async I/O.
-
-# more liblua modules
-
-`socket` to provide convenient wrappers around sockets.
-
-We gotta complete `syscalls` too
-
 # Complete devfs
 
 `/dev/eeprom` and `/dev/eeprom-data`
@@ -21,6 +5,12 @@ We gotta complete `syscalls` too
 Ability to write to partitions and drives.
 
 Ability to actually use the damn thing.
+
+# Radio sockets
+
+"radio" protocol, with "packet" subprotocol.
+Connection-less, just send and receive.
+Fully supports async I/O.
 
 # Chown syscall
 
@@ -33,6 +23,10 @@ Requires write permissions for that path.
 `w` should return a mutable buffer with overwriting.
 `a` should return a stream.
 `i` should return a mutable buffer with inserting.
+
+# complete syscalls
+
+`syscalls` is very incomplete.
 
 # Release v0.0.1
 

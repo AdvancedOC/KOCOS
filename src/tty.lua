@@ -706,6 +706,7 @@ function tty:read(action)
                 self:showCursor()
             end
             inputBuffer = inputBuffer .. data
+            i = i + #data
         end
 
         if event == "key_down" then
