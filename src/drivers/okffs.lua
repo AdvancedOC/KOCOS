@@ -70,12 +70,13 @@ local SECTOR_CACHE_LIMIT = 16*1024
 ---@param partition KOCOS.Partition
 function okffs.create(partition)
     if partition.kind == "reserved" then return end -- fast ass skip
-    if partition.drive.type ~= "drive" then return end
-    local sectorSize = partition.drive.getSectorSize()
-    local platterCount = partition.drive.getPlatterCount()
+    local drive = KOCOS.vdrive.proxy(partition.drive) or partition.drive
+    if drive.type ~= "drive" then return end
+    local sectorSize = drive.getSectorSize()
+    local platterCount = drive.getPlatterCount()
     local manager = setmetatable({
         partition = partition,
-        drive = partition.drive,
+        drive = drive,
         start = math.floor(partition.startByte / sectorSize) + 1,
         sectorSize = sectorSize,
         capacity = math.floor(partition.byteSize / sectorSize),

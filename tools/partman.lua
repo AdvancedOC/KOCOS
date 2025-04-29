@@ -1,7 +1,7 @@
 print("partman - Partition Manager")
 
 local drives = {}
-for addr in component.list("drive", true) do
+for addr in _K.vdrive.list() do
     table.insert(drives, addr)
 end
 
@@ -18,7 +18,7 @@ local input = io.read("l")
 local selected = drives[tonumber(input)]
 assert(selected, "bad input")
 
-local drive = component.proxy(selected)
+local drive = _K.vdrive.proxy(selected)
 
 local capacity = drive.getCapacity()
 local sectorSize = drive.getSectorSize()

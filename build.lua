@@ -24,6 +24,7 @@ local sources = {
     "src/drivers/gpt.lua",
     "src/drivers/mtpt.lua",
     "src/drivers/okffs.lua",
+    "src/drivers/tape_drive.lua",
     "src/drivers/internet.lua",
     "src/drivers/domain.lua",
     "src/drivers/radio_sockets.lua",

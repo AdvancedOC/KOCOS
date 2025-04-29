@@ -57,6 +57,7 @@ end
 
 ---@type KOCOS.PartitionParser
 function KOCOS.gpt(drive)
+    drive = KOCOS.vdrive.proxy(drive) or drive
     if drive.type ~= "drive" then return end
     -- This is currently NOT OPTIMIZED AT ALL
     local blockSize = drive.getSectorSize()

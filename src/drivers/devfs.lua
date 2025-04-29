@@ -96,9 +96,9 @@ function devfs:open(path, mode)
         }
     end
     if mode == "a" then return nil, "bad mode" end -- it just simply doesn't work on drives and partitions
-    for addr in component.list("drive", true) do
+    for addr, drive in KOCOS.vdrive.list() do
         if path == "drives/" .. formatUUID(addr) then
-            local proxy = component.proxy(addr)
+            local proxy = table.copy(drive) -- we plan to mutate
             proxy.current = 0
             proxy.mode = mode
             return self:addProxy(proxy)
@@ -131,7 +131,8 @@ local function writeBuffer(addr, off, data)
 end
 
 local function readBuffer(addr, off, limit)
-    local proxy = component.proxy(addr)
+    local proxy = KOCOS.vdrive.proxy(addr) or component.proxy(addr)
+    if not proxy then return nil end
     local s = ""
 
     if proxy.type == "drive" then
@@ -154,6 +155,13 @@ local function readBuffer(addr, off, limit)
                 left = left - 1
             end
         end
+    elseif proxy.type == "eeprom" then
+        local data = proxy.get()
+        if not data then return end -- EEPROM probably removed
+        if limit == math.huge then limit = #data end
+        local chunk = data:sub(off+1, off+limit)
+        if #chunk == 0 then return end
+        return chunk
     end
 
     if #s == 0 then return nil end
@@ -317,7 +325,7 @@ function devfs:type(path)
             if component.type(uuid) == type then return "file" end
             return "missing"
         end
-        if type == "drive" and path == "drives/" .. formatUUID(addr) then
+        if path == "drives/" .. formatUUID(addr) and KOCOS.vdrive.proxy(addr) then
             return "file"
         end
     end
@@ -363,10 +371,8 @@ function devfs:list(path)
     end
     if path == "drives" then
         local drives = {}
-        for addr, type in component.list() do
-            if type == "drive" then
-                table.insert(drives, formatUUID(addr))
-            end
+        for addr in KOCOS.vdrive.list() do
+            table.insert(drives, formatUUID(addr))
         end
         return drives
     end
@@ -412,10 +418,10 @@ function devfs:size(path)
                 return component.invoke(addr, "getSize")
             end
         end
-        if type == "drive" then
-            if path == "drives/" .. formatUUID(addr) then
-                return component.invoke(addr, "getCapacity")
-            end
+        if path == "drives/" .. formatUUID(addr) then
+            local p = KOCOS.vdrive.proxy(addr)
+            if not p then return 0 end
+            return p.getCapacity()
         end
     end
     local allParts = KOCOS.fs.findAllPartitions{}

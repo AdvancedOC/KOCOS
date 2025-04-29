@@ -1,3 +1,12 @@
+# Custom whole drive partition drivers / devfs drivers
+
+Some components that aren't the vanilla `drive`s may still support
+drive-like operations.
+
+To support them, a `KOCOS.quasidrive` module may be added to allow drive-like
+operations on non-drive proxies and addresses. It would support fetching
+metadrives and whatnot for programs such as `tools/partman.lua` to use.
+
 # Complete devfs
 
 Ability to write to partitions and drives.
@@ -29,15 +38,6 @@ but not great for the TTY's OSC command, which absolutely should be able to rece
 # Release v0.0.1
 
 At this point the kernel is suitable for an initial alpha release.
-
-# Custom whole drive partition drivers / devfs drivers
-
-Some components that aren't the vanilla `drive`s may still support
-drive-like operations.
-
-To support them, a `KOCOS.quasidrive` module may be added to allow drive-like
-operations on non-drive proxies and addresses. It would support fetching
-metadrives and whatnot for programs such as `tools/partman.lua` to use.
 
 # Shrink some things
 

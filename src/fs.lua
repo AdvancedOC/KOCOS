@@ -666,3 +666,53 @@ KOCOS.defer(function()
     fs.mount("/tmp", partitions[1])
     KOCOS.log("Mounted tmpfs")
 end, 3)
+
+local vdrive = {}
+
+--- Literally just the drive component interface lol
+---@class KOCOS.VDrive
+---@field type "drive"
+---@field slot integer
+---@field address string
+---@field getLabel fun(): string
+---@field setLabel fun(label: string): string
+---@field getCapacity fun(): integer
+---@field getSectorSize fun(): integer
+---@field getPlatterCount fun(): integer
+---@field readByte fun(byte: integer): integer
+---@field readSector fun(sector: integer): string
+---@field writeByte fun(byte: integer, byte: integer)
+---@field writeSector fun(sector: integer)
+
+---@alias KOCOS.VDrive.Driver fun(proxy: table): KOCOS.VDrive?
+
+---@type KOCOS.VDrive.Driver[]
+vdrive.drivers = {}
+
+---@param driver KOCOS.VDrive.Driver
+function vdrive.addDriver(driver) table.insert(vdrive.drivers, driver) end
+
+---@param proxy string|table
+---@return KOCOS.VDrive?
+function vdrive.proxy(proxy)
+    if type(proxy) == "string" then proxy = component.proxy(proxy) end
+    ---@cast proxy table
+    if proxy.type == "drive" then return proxy end
+    for i=#vdrive.drivers, 1, -1 do
+        local drive = vdrive.drivers[i](proxy)
+        if drive then return drive end
+    end
+end
+
+function vdrive.list()
+    ---@type {[string]: KOCOS.VDrive}
+    local t = {}
+    for addr in component.list() do
+        t[addr] = vdrive.proxy(addr) -- if nil then it just doesnt store it lol
+    end
+    return pairs(t)
+end
+
+KOCOS.vdrive = vdrive
+
+KOCOS.log("Loaded vdrive system")

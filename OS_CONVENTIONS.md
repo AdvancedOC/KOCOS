@@ -53,7 +53,8 @@ by `:`. When given command `x`, the shell should look in these directories for f
 directories for the same command, the file chosen is implementation-defined, and may be inconsistent.
 - `MANPATH` works similarly to `PATH`, except that it stores directories to find manual entries.
 - `MANPAGER` should be a program `man` can invoke to display the file. If it is empty, or set to an empty value, `man` should just print to stdout.
-The contents should be a shell command, with the file path added as a last argument.
+The contents should be a shell command, with the file path added as a last argument. The program is also the one that handles escapes, `man` only handles them
+itself when printing to stdout.
 - `TERM`, as the *identifier* of the terminal emulator being used. This may be used by programs to use non-standard escape sequences or other operations
 only supported by specific terminals.
 - `COLORTERM`, as a string indicating the support for color. If the value is `nocolor`, then color codes are unsupported. If the value is `ansicolor`, then the

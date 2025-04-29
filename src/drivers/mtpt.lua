@@ -12,6 +12,14 @@ local function readBigEndian(data)
     return n
 end
 
+---@param address string
+---@param i integer
+---@return string
+local function computeUUID(address, i)
+    math.randomseed(readBigEndian(address:sub(1, 3)) * i)
+    return KOCOS.testing.uuid()
+end
+
 ---@param drive table
 ---@param data string
 ---@param i integer
@@ -49,12 +57,13 @@ local function parsePartitionStruct(drive, data, i)
         startByte = (startSector - 1) * sectorSize, -- KOCOS partitions officially start at 0
         byteSize = sectorLength * sectorSize,
         -- worst algorithm for UUIDs ever
-        uuid = BinToUUID_direct(string.char(i) .. startSector .. drive.address),
+        uuid = computeUUID(drive.address, i),
     }
 end
 
 ---@type KOCOS.PartitionParser
 function KOCOS.mtpt(drive)
+    drive = KOCOS.vdrive.proxy(drive) or drive
     if drive.type ~= "drive" then return end
 
     local lastSector = math.floor(drive.getCapacity() / drive.getSectorSize())
