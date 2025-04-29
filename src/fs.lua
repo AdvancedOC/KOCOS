@@ -510,9 +510,9 @@ local function sameUuid(tested, reference, autocomplete)
     return tested == reference
 end
 
--- ONLY SUPPORTS VANILLA UNMANAGED DRIVES !!!!!!!!!!
 ---@return KOCOS.Partition?
 function fs.wholeDrivePartition(drive)
+    drive = KOCOS.vdrive.proxy(drive) or drive
     if drive.type ~= "drive" then return end
     ---@type KOCOS.Partition
     return {
