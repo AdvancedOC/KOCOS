@@ -57,6 +57,11 @@ The goal is to get the release builds to be smaller, both compressed and decompr
 Basic FAT16.
 No `i` mode or `erase`.
 
+# Stream files in fs
+
+A `mkstream` syscall would make a new `stream` file, which has a callback for writes, reads, seeks and close.
+This can be used by programs using virtual standard I/O to be more reactive than waiting for the scheduler to resume them.
+
 # Support pasting in TTY keyboard mode
 
 Minor thing but like kinda cool

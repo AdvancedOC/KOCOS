@@ -5,8 +5,10 @@ Kernel for Open Computers Operating System
 ## Design
 
 KOCOS is a monolithic-ish kernel, designed to be capable out of the box of managing many simple programs.
+With all features compiled in, it is a heavy kernel, and has high system requirements. Things can be compiled out though.
 
-KOCOS provides a process system (with multi-threading and critical sections!), filesystem abstraction, TTY implementation, UNIX-inspired syscalls and event subsystems.
+KOCOS provides a process system (with multi-threading and critical sections!), filesystem abstraction, TTY implementation, UNIX-inspired syscalls and event
+subsystems.
 
 ## Feature list
 
@@ -14,14 +16,27 @@ KOCOS provides a process system (with multi-threading and critical sections!), f
 - Per-resource event system
 - Resource sharing via sharing file descriptors
 - File descriptors to non-file resources
+- Router system. No drivers for any protocols are built-in, but the router system supports custom drivers.
 - Its own executable and linkable format (KOCOS Executable or Linkable Process / KELP)
+- Berkeley-ish sockets. (though `listen` is renamed to `serve`, as `listen` is used to setup signal callbacks)
+- Domain sockets
+- Radio interface, and radio sockets, to simplify communicating over modems and tunnels (radio sends strings with modems and strings and port number
+with tunnels)
+- Support for custom *drivers*, which can also be loaded by ring 0 and ring 1 processes, which get direct access to the kernel.
+- File system permissions support (NOTE: managed filesystems has all permissions enabled on all paths currently)
+- DevFS
+- Unmanaged filesystem support, with built-in support for GPT partitions, MTPT partitions, and OKFFS file systems (custom format).
+- Virtual Machine support via KVM, with support for a custom `kocos` component, which allows TTY sharing and requesting passthrough at runtime. It also
+supports mounting filesystem paths as virtual `filesystem` components.
+- Hostname support
 
 ## Project structure
 
 `init.lua` is a basic template-bootloader using KOCOS. It is not a proper bootloader, but is enough for the demo OS.
 `basicTTY.lua` is the demo OS' single process. It is a shell (confusingly), and has all the commands as built-ins.
 `build.lua` is the Kernel's build system. Running it will generate `kernel.lua`, a one-file concatenation of all of the source files of KOCOS.
-`build_libs.lua` is the library's build system. Running it will generate the binaries in `/lib`.
+`build_libs.lua` is the library's build system. Running it will generate the binaries in `/lib`. These libraries are not just useful for operating systems,
+but are also needed by the demo OS.
 `luart` is a prebuilt binary needed for the `lua` command. It is a hack to link in `/lib/liblua.so` and run a Lua script.
 
 ## Non-POSIX characteristics
