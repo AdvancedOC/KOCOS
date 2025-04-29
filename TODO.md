@@ -153,3 +153,65 @@ Notes that should be supported:
 - pling
 - snare
 - xylophone
+
+# More unmanaged filesystem formats
+> Because you can never have enough
+
+## MTPT
+> [Reference Implementation Here](https://git.shadowkat.net/izaya/OC-misc/src/branch/master/partition)
+
+MTPT is a very simple partitioning format. Won't need a very heavy driver, and could be useful.
+
+## Our own partition table
+> Name not yet decided. Naming things is an unsolved computer science problem.
+
+A simple partition table, starting at the last sector. (for compatibility with BBR while minimizing wasted space.)
+Its structs would be:
+```c
+// Big endian encoding
+// Sector size long.
+struct header {
+    char header[8]; // header string. 1 char = 1 byte, just like in Lua.
+    uint8_t partitionCount;
+    uint24_t partitionArray; // 0 for no partition array, stores where extra partitions are if the amount of partitions didn't fit here.
+                            // Its capacity shall be assumed to be the largest amount of free space starting there.
+                            // IT IS NOT ALLOWED TO POINT INSIDE OF A PARTITION. If it does, the behavior is implementation-defined.
+    uint8_t reserved[116]; // first 128 bytes are for data. The padding is reserved and should be filled with 0s.
+    struct partition array[]; // primary partition array, stored inside this sector to minimize waste.
+};
+
+enum flags {
+    READONLY = 1, // this partition should not have its contents modified
+    HIDDEN = 2, // this partition may be unimportant to the user, or for internal use only, and thus should be hidden.
+    PINNED = 4, // this partition should not be relocated, as something needs it to be there. Typically used for "RESERVED"-type partitions.
+};
+
+// 64 bytes long.
+struct partition {
+    char name[32]; // padded with 0s, 0-terminated.
+    uint24_t start; // first sector
+    uint24_t len; // length of partition, in sectors.
+    uint16_t flags; // see flags. All bits not specified in flags should be set to 0.
+    char type[8]; // 8-byte type. Can be treated as a uint64_t or just a string. "BOOT-LDR" is reserved for the bootloader, "@GENERIC" is reserved for
+                // generic user partitions, and "RESERVED" is reserved for partitions storing copies of files (sometimes used for boot records).
+                // OSs should use them to annotate special functions, NOT FILESYSTEM TYPE.
+    uint8_t reserved[16]; // for 64 byte size.
+};
+```
+
+## A new, conventional filesystem
+> Name not yet decided. Naming things remains an unsolved computer science problem.
+
+A conventional filesystem (no `i` mode or `erase` syscall support like OKFFS), designed to be fast and simple.
+Its format should be simple enough to fit on a BIOS.
+Exact details not known yet.
+
+Ideas:
+- Instead of free list, the blocks between the superblock and the free space have a byte at the start, with a bit flag that stores if they are in use. This
+means freeing can be, well, almost free, as there is basically no need to seek.
+- Blocks have headers with the special starting flags byte but also the next block in the list.
+- `spaceUsed` is computed and probably cached, instead of stored as an active block count. This is to eliminate the need to seek often.
+- Free space index not being exactly the sector, but instead the index in a theoretical list of blocks that reduces seeks by going platter-by-platter first.
+Block id would remain as just the sector. Essentially, if there are 4 sectors per platter, and 2 platters, the theoretical list would be sectors 1, 5, 2, 6,
+3, 7, 4, 8.
+- Make heavy use of caching in the driver. At least a read cache like the one in OKFFS.
