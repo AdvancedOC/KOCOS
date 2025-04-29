@@ -201,10 +201,10 @@ end
 
 ---@param address string
 ---@param protocol? string
-function syscalls.getaddrinfo(proc, address, protocol)
+function syscalls.getaddrinfo(proc, address, protocol, subprotocol)
     assert(type(address) == "string", "bad address")
     assert(type(protocol) == "string" or type(protocol) == "nil", "bad protocol")
-    return KOCOS.network.getAddressInfo(address, protocol)
+    return KOCOS.network.getAddressInfo(address, protocol, subprotocol)
 end
 
 ---@param fd integer
@@ -484,14 +484,14 @@ function syscalls.popWhere(proc, fd, f)
     return events.popWhere(f)
 end
 
-function syscalls.clear(proc, fd)
+function syscalls.clear(proc, fd, ...)
     local res = proc.resources[fd]
     assert(res, "bad file descriptor")
 
     local events = eventsOf(res)
     assert(events, "bad file descriptor")
 
-    events.clear()
+    events.clear(...)
     return true
 end
 

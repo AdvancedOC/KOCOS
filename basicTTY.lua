@@ -193,6 +193,7 @@ local history = {}
 
 local commandStdinBuffer = ""
 local function readLine()
+    write(stdout, "\x1b[4i")
     local historyIndex = #history+1
     while true do
         local lineEnd = commandStdinBuffer:find('[%\n%\4]')

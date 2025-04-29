@@ -3,7 +3,7 @@
 DevFS structure:
 
 /dev/components/<type>/<uuid> - Files to open proxies
-/dev/parts/<drive uuid>/<part uuid> - Files to access partitions. Partitions on managed partitions appear as files
+/dev/parts/<part uuid> - Files to access partitions. Partitions on managed partitions appear as files
 /dev/drives/<drive uuid> - Files to access whole drives.
 /dev/null
 /dev/zero
@@ -104,7 +104,7 @@ function devfs:open(path, mode)
             return self:addProxy(proxy)
         end
     end
-    local allParts = KOCOS.fs.findAllPartitions{allowFullDrivePartition = true}
+    local allParts = KOCOS.fs.findAllPartitions{}
     for _, part in ipairs(allParts) do
         if path == "parts/" .. formatUUID(part.uuid) then
             return self:addProxy{
@@ -321,9 +321,7 @@ function devfs:type(path)
             return "file"
         end
     end
-    local allParts = KOCOS.fs.findAllPartitions{
-        allowFullDrivePartition = true,
-    }
+    local allParts = KOCOS.fs.findAllPartitions{}
     for _, part in ipairs(allParts) do
         if path == "parts/" .. formatUUID(part.uuid) then
             return "file"
@@ -356,9 +354,7 @@ function devfs:list(path)
         return arr
     end
     if path == "parts" then
-        local allParts = KOCOS.fs.findAllPartitions{
-            allowFullDrivePartition = true,
-        }
+        local allParts = KOCOS.fs.findAllPartitions{}
         local arr = {}
         for i=1,#allParts do
             table.insert(arr, formatUUID(allParts[i].uuid))
@@ -422,9 +418,7 @@ function devfs:size(path)
             end
         end
     end
-    local allParts = KOCOS.fs.findAllPartitions{
-        allowFullDrivePartition = true,
-    }
+    local allParts = KOCOS.fs.findAllPartitions{}
     for _, part in ipairs(allParts) do
         if path == "parts/" .. formatUUID(part.uuid) then
             return part.byteSize

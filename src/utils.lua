@@ -52,6 +52,25 @@ function string.endswith(s, suffix)
     return s:sub(-#suffix) == suffix
 end
 
+---@param s string
+---@param l integer
+---@param c? string
+--- We assure you this will not break npm
+function string.leftpad(s, l, c)
+    if #s > l then return s end
+    c = c or " "
+    return string.rep(c, l - #s) .. s
+end
+
+---@param s string
+---@param l integer
+---@param c? string
+function string.rightpad(s, l, c)
+    if #s > l then return s end
+    c = c or "\0"
+    return s .. string.rep(c, l - #s)
+end
+
 ---@param x number
 ---@param min number
 ---@param max number
@@ -103,4 +122,29 @@ function mail:push(msg)
     while self.len > self.limit do
         self:pop()
     end
+end
+
+-- Take in a binary and turn it into a GUID
+-- Bin can be above 16 bytes.
+-- If bin is less than 16 bytes, it is padded with 0s
+---@param bin string
+function BinToUUID_direct(bin)
+    local digits4 = "0123456789ABCDEF"
+
+    local base16d = ""
+    for i=1,16 do
+        local byte = string.byte(bin, i, i)
+        if not byte then byte = 0 end
+        local upper = math.floor(byte / 16) + 1
+        local lower = byte % 16 + 1
+        base16d = base16d .. digits4:sub(upper, upper) .. digits4:sub(lower, lower)
+    end
+
+    local guid = base16d:sub(1, 8) .. "-"
+        .. base16d:sub(9, 12) .. "-"
+        .. base16d:sub(13, 16) .. "-"
+        .. base16d:sub(17, 20) .. "-"
+        .. base16d:sub(21)
+
+    return guid
 end

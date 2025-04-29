@@ -22,9 +22,11 @@ local sources = {
     "src/drivers/devfs.lua",
     "src/drivers/managedfs.lua",
     "src/drivers/gpt.lua",
+    "src/drivers/mtpt.lua",
     "src/drivers/okffs.lua",
     "src/drivers/internet.lua",
     "src/drivers/domain.lua",
+    "src/drivers/radio_sockets.lua",
     -- Needs to be last cuz self-boots.
     "src/postlude.lua",
 }

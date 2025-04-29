@@ -207,7 +207,6 @@ function tty:reset()
     self:setForeground(self.ansiPalette[37] or 0xFFFFFF)
     self:setBackground(self.ansiPalette[30] or 0x000000)
     self.conceal = false
-    self.readImmediate = false
 end
 
 ---@param code integer

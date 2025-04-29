@@ -34,6 +34,15 @@ Currently TTY uses Lua patterns instead of a proper escape parser.
 This is fine for some things that can't return unicode, like parsing TTY responses,
 but not great for the TTY's OSC command, which absolutely should be able to receive Unicode.
 
+# Custom whole drive partition drivers / devfs drivers
+
+Some components that aren't the vanilla `drive`s may still support
+drive-like operations.
+
+To support them, a `KOCOS.quasidrive` module may be added to allow drive-like
+operations on non-drive proxies and addresses. It would support fetching
+metadrives and whatnot for programs such as `tools/partman.lua` to use.
+
 # Release v0.0.1
 
 At this point the kernel is suitable for an initial alpha release.
@@ -157,11 +166,6 @@ Notes that should be supported:
 # More unmanaged filesystem formats
 > Because you can never have enough
 
-## MTPT
-> [Reference Implementation Here](https://git.shadowkat.net/izaya/OC-misc/src/branch/master/partition)
-
-MTPT is a very simple partitioning format. Won't need a very heavy driver, and could be useful.
-
 ## Our own partition table
 > Name not yet decided. Naming things is an unsolved computer science problem.
 
@@ -195,7 +199,7 @@ struct partition {
     char type[8]; // 8-byte type. Can be treated as a uint64_t or just a string. "BOOT-LDR" is reserved for the bootloader, "@GENERIC" is reserved for
                 // generic user partitions, and "RESERVED" is reserved for partitions storing copies of files (sometimes used for boot records).
                 // OSs should use them to annotate special functions, NOT FILESYSTEM TYPE.
-    uint8_t reserved[16]; // for 64 byte size.
+    uint8_t uuid[16]; // Bytes are in the order seen in the stringified version.
 };
 ```
 

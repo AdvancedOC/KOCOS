@@ -44,8 +44,8 @@ end
 ---@param protocol any
 ---@param subprotocol any
 function radioSock.create(protocol, subprotocol, options, process)
-    if protocol ~= "domain" then return end
-    if protocol ~= "channel" then return end
+    if protocol ~= "radio" then return end
+    if subprotocol ~= "packet" then return end
     return radioSock.blank()
 end
 
@@ -82,7 +82,7 @@ end
 ---@param options {port?: integer}?
 function radioSock:async_connect(socket, address, options)
     options = options or {}
-    local port = options.port or 0
+    local port = options.port or 1
 
     local addr = address .. ":" .. tostring(port)
 
@@ -134,11 +134,12 @@ function radioSock:accept(socket)
                 process = socket.process,
                 state = "connected",
             }
-            self.connectionMap[c.address] = {
+            radioSock.connectionMap[c.address] = {
                 pending = nil,
                 -- we didn't forget!
                 buffer = c.buffer,
             }
+            KOCOS.logAll("Connection at", c.address)
             socket.events.pop(network.EVENT_CONNECT_REQUEST)
             return sock
         end
@@ -189,7 +190,7 @@ end
 function radioSock:readBuffer(connection, len)
     if len > #connection.buffer then len = #connection.buffer end
     local chunk = connection.buffer:sub(1, len)
-    connection.buffer = connection.buffer(len+1)
+    connection.buffer = connection.buffer:sub(len+1)
     return chunk
 end
 
@@ -202,6 +203,7 @@ function radioSock:read(socket, len)
     if #connection.buffer > 0 then
         return self:readBuffer(connection, len)
     end
+    self:async_read(socket, len)
     while true do
         if socket.events.queued(KOCOS.network.EVENT_CLOSE_RESPONSE) then
             return nil
@@ -235,21 +237,28 @@ end
 function radioSock.handler(event, sender, port, data, distance, time)
     if event ~= radio.RADIO_EVENT then return end
     local addr = sender .. ":" .. tostring(port)
-    if radioSock.serverMap[port] then
-        local server = radioSock.serverMap[port]
-        table.insert(server.pendingQueue, {
-            address = addr,
-            buffer = "",
-        })
-        while #server.pendingQueue > radioSock.RADIO_MAX_PENDING do
-            table.remove(server.pendingQueue, 1)
-        end
-    elseif radioSock.connectionMap[addr] then
+
+    if radioSock.connectionMap[radio.ADDR_BROADCAST .. ":" .. port] then
+        addr = radio.ADDR_BROADCAST .. ":" .. port
+    end
+
+    if radioSock.connectionMap[addr] then
         local connection = radioSock.connectionMap[addr]
         connection.buffer = (connection.buffer .. data):sub(-radioSock.RADIO_MAX_BUFFER)
         if connection.pending then
             connection.pending.push(network.EVENT_READ_RESPONSE, "", data)
             connection.pending = nil
+        end
+    elseif radioSock.serverMap[port] then
+        -- TODO: ensure unique queue
+        local server = radioSock.serverMap[port]
+        table.insert(server.pendingQueue, {
+            address = addr,
+            buffer = data,
+        })
+        server.events.push(network.EVENT_CONNECT_REQUEST)
+        while #server.pendingQueue > radioSock.RADIO_MAX_PENDING do
+            table.remove(server.pendingQueue, 1)
         end
     end
 end

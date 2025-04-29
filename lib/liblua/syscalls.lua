@@ -176,4 +176,87 @@ function sys.hostname(hostname)
     return name, err
 end
 
+function sys.socket(protocol, subprotocol, config)
+    local err, fd = syscall("socket", protocol, subprotocol, config)
+    return fd, err
+end
+
+function sys.getaddrinfo(address, protocol)
+    local err, info = syscall("getaddrinfo", address, protocol)
+    return info, err
+end
+
+function sys.connect(fd, address, options)
+    local err = syscall("connect", fd, address, options)
+    return err == nil, err
+end
+
+function sys.aio_connect(fd, address, options)
+    local err, packet = syscall("aio_connect", fd, address, options)
+    return packet, err
+end
+
+function sys.serve(fd, options)
+    local err = syscall("serve", fd, options)
+    return err == nil, err
+end
+
+function sys.accept(fd)
+    local err, client = syscall("accept", fd)
+    return client, err
+end
+
+function sys.queued(fd, ...)
+    local err, res = syscall("queued", fd, ...)
+    return res, err
+end
+
+function sys.pop(fd, ...)
+    local t = {syscall("pop", fd, ...)}
+    if t[1] then
+        return nil, t[1]
+    else
+        return table.unpack(t, 2)
+    end
+end
+
+function sys.popWhere(fd, f)
+    local t = {syscall("popWhere", fd, f)}
+    if t[1] then
+        return nil, t[1]
+    else
+        return table.unpack(t, 2)
+    end
+end
+
+function sys.clear(fd, ...)
+    local err = syscall("clear", fd, ...)
+    return err == nil, err
+end
+
+function sys.push(fd, name, ...)
+    local err = syscall("push", fd, name, ...)
+    return err == nil, err
+end
+
+function sys.listen(callback, id)
+    local err, lid = syscall("listen", callback, id)
+    return lid, err
+end
+
+function sys.forget(id)
+    local err = syscall("forget", id)
+    return err == nil, err
+end
+
+function sys.aio_read(fd, len)
+    local err, packet = syscall("aio_read", fd, len)
+    return packet, err
+end
+
+function sys.aio_write(fd, data)
+    local err, packet = syscall("aio_write", fd, data)
+    return packet, err
+end
+
 return sys

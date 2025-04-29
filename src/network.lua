@@ -23,10 +23,11 @@ end
 
 ---@param address string
 ---@param protocol? string
+---@param subprotocol? string
 ---@return KOCOS.NetworkAddressInfo?
-function network.getAddressInfo(address, protocol)
+function network.getAddressInfo(address, protocol, subprotocol)
     for i=#network.resolvers,1,-1 do
-        local addrinfo = network.resolvers[i](address, protocol)
+        local addrinfo = network.resolvers[i](address, protocol, subprotocol)
         if addrinfo then return addrinfo end
     end
 end
