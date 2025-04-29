@@ -4,14 +4,6 @@ Ability to write to partitions and drives.
 
 Ability to actually use the damn thing.
 
-# Radio sockets
-
-"radio" protocol, with "packet" subprotocol.
-Connection-less, just send and receive.
-Fully supports async I/O.
-
-Still need to be tested.
-
 # Chown syscall
 
 A simple syscall to change a permission at a path.
@@ -34,6 +26,10 @@ Currently TTY uses Lua patterns instead of a proper escape parser.
 This is fine for some things that can't return unicode, like parsing TTY responses,
 but not great for the TTY's OSC command, which absolutely should be able to receive Unicode.
 
+# Release v0.0.1
+
+At this point the kernel is suitable for an initial alpha release.
+
 # Custom whole drive partition drivers / devfs drivers
 
 Some components that aren't the vanilla `drive`s may still support
@@ -42,10 +38,6 @@ drive-like operations.
 To support them, a `KOCOS.quasidrive` module may be added to allow drive-like
 operations on non-drive proxies and addresses. It would support fetching
 metadrives and whatnot for programs such as `tools/partman.lua` to use.
-
-# Release v0.0.1
-
-At this point the kernel is suitable for an initial alpha release.
 
 # Shrink some things
 

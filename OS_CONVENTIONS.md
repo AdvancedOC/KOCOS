@@ -69,7 +69,7 @@ by programs which support internationalization.
 
 When doing an `os.execute()`, it should invoke a shell.
 
-It must call the shell, typically supplied in the `SHELL` environment variable, with a `-c` argument, and another argumet as the entire string of the command.
+It must call the shell, typically supplied in the `SHELL` environment variable, with a `-c` argument, and another argument as the entire string of the command.
 The invoked shell MUST immediately execute the command and exit with the same status code as the command. It MUST NOT continue running after the command.
 
 # KPM

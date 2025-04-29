@@ -493,7 +493,7 @@ function cmds.partcomp(...)
 end
 
 function cmds.lspart(...)
-    local parts = _K.fs.findAllPartitions({allowFullDrivePartition = true, mountedOnly = false})
+    local parts = _K.fs.findAllPartitions{}
     for i=1,#parts do
         local part = parts[i]
         printf("%s %s %s (from %s)", part.uuid, part.name, string.memformat(part.byteSize), part.drive.address)
