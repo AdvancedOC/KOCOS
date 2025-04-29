@@ -170,11 +170,12 @@ A simple partition table, starting at the last sector. (for compatibility with B
 Its structs would be:
 ```c
 // Big endian encoding
+// Sectors start at 0 to use the 0-value of the numbers
 // Sector size long.
 struct header {
     char header[8]; // header string. 1 char = 1 byte, just like in Lua.
     uint8_t partitionCount;
-    uint24_t partitionArray; // 0 for no partition array, stores where extra partitions are if the amount of partitions didn't fit here.
+    uint24_t partitionArray; // last sector for no partition array, stores where extra partitions are if the amount of partitions didn't fit here.
                             // Its capacity shall be assumed to be the largest amount of free space starting there.
                             // IT IS NOT ALLOWED TO POINT INSIDE OF A PARTITION. If it does, the behavior is implementation-defined.
     uint8_t reserved[116]; // first 128 bytes are for data. The padding is reserved and should be filled with 0s.

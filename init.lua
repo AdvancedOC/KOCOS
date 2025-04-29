@@ -5,17 +5,13 @@ _OSVERSION = "KOCOS Demo"
 local config = {
     rootfs = rootfs,
     init = "/basicTTY.lua",
-    logThreadEvents = false,
-    syscallTraceback = false,
     needsExtensions = false,
-    -- not working currently
-    sharedStorage = false,
     eventOnLog = false,
     eventOnPanic = false,
 }
 
 -- Will be overwritten by KOCOS anyways
-function dofile(file, ...)
+local function dofile(file, ...)
     local root = component.proxy(rootfs)
     local f = assert(root.open(file, "r"))
 
