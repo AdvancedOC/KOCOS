@@ -36,14 +36,8 @@ even if the path is `/bin/sh`, though if it is absent, programs can assume it is
 - `/usr/exec` should contain internal binaries, which *should not be run by the user directly.* These may include sophisticated post-install steps,
 or more complex removal tools.
 - `/usr/man` should contain manual entries for documentation. It should contain files with no extensions, whos names are the manual entries passed to
-programs such as `man`. It should be part of `MANPATH`. Any text wrapped in asterisks within those files should be highlighted in some way (either using
-a brighter color or a different color altogether).
+programs such as `man`. It should be part of `MANPATH`. Man format defined later in the document.
 - `/home` should contain the home directories of all the users.
-- `/etc/boot` should store a list of binaries used to boot the OS. The binaries are executed in sorted order, by the init system, on boot.
-The init system may have other locations to define other boot locations. These binaries are executed with **no arguments** and **an empty environment**, at
-**ring 1.** A conventional boot process would have one program which runs the main TTY and login (which are often merged into one program), and the rest just
-start background daemons. The sorting used for the order is the default `table.sort` behavior when sorting the filenames. This also means that if the files
-start with 3 digit numbers, as is convention, they will be ran in order of the numbers.
 - `/mnt` should contain temporary mountpoints. `/mnt` itself may be the mountpoint, or it may simply contain the mountpoints.
 - `/boot` should contain files necessary for booting. It may contain the kernel, and/or other files.
 
@@ -58,8 +52,8 @@ When the *shell* is eventually launched by the login program, it should be given
 by `:`. When given command `x`, the shell should look in these directories for files `x`, `x.lua` and `x.kelp`. If there are multiple matches in these
 directories for the same command, the file chosen is implementation-defined, and may be inconsistent.
 - `MANPATH` works similarly to `PATH`, except that it stores directories to find manual entries.
-- `MANPAGER` should be a program `man` can invoke to display the file. If it is empty, or set to an empty value, `man` should just print to stdout. The program
-may be specified by full path, or by name searchable via `PATH`. It shall be invoked with one singular extra argument, the full path to the manual entry.
+- `MANPAGER` should be a program `man` can invoke to display the file. If it is empty, or set to an empty value, `man` should just print to stdout.
+The contents should be a shell command, with the file path added as a last argument.
 - `TERM`, as the *identifier* of the terminal emulator being used. This may be used by programs to use non-standard escape sequences or other operations
 only supported by specific terminals.
 - `COLORTERM`, as a string indicating the support for color. If the value is `nocolor`, then color codes are unsupported. If the value is `ansicolor`, then the
@@ -69,6 +63,7 @@ Whilst you should aim to use the directly supported color code, it is fair to as
 ansi escape codes even if `COLORTERM` is `truecolor`.
 - `LANG` should contain the locale intended to be used by programs, such as, `en_US.UTF-8`, which means "English (US), encoded in UTF-8." This may be used
 by programs which support internationalization.
+- `DISPLAY` should contain the address of the underlying display hardware being used. It may be omitted if the terminal is remote. Or `:remote` may be used.
 
 # Invoking the shell
 
@@ -112,3 +107,30 @@ which should be interpreted as a dependency group requiring the user to select w
 - `postInstall`, a list of shell commands to `os.execute` after a first-install.
 - `postUpdate`, a list of shell commands to `os.execute` after an update, but not on a first-install.
 - `cleanup`, a list of shell commands to `os.execute` when the package is uninstalled, BEFORE any files are removed.
+
+# Man pages
+
+Man format is based off pure-text escapes, each indicating simple behavior. The `man` program itself should support them in case there is no `MANPAGER` set,
+and it must print them.
+
+When colors are used, ANSI color escapes should be used. This allows the TTY's theme to be used in the man page.
+
+Escapes:
+- `\` will escape a special escape character, allowing it to be used freely as text.
+- `*` toggles *bright mode.* This is used to highlight text, such as titles. It will make the color used be a bright color.
+- `@0` resets the colors to default terminal colors.
+- `@b` sets the text color to black. (ANSI color 30)
+- `@R` sets the text color to red. (ANSI color 31)
+- `@G` sets the text color to green. (ANSI color 32)
+- `@Y` sets the text color to yellow. (ANSI color 33)
+- `@B` sets the text color to blue. (ANSI color 34)
+- `@M` sets the text color to magenta. (ANSI color 35)
+- `@C` sets the text color to cyan. (ANSI color 36)
+- `@W` sets the text color to white. (ANSI color 37)
+- `~C` will center the line. More accurately, it will prepend spaces between it and the end of the line to make it centered based off the resolution.
+The centering should take into account line width, such that the text is centered the way the user would expect.
+- `~R` will align the line to the right. More accurately, it will prepend enough spaces to make the line appear at the right end of the screen, based off the
+resolution.
+- `^L` will represent a form of a man-link. The text shown in place of the link is terminated by another `^L`, though all the other escapes apply inside.
+The link itself is terminated by yet another `^L`. The links can point to a man page, file containing a man page, or some kind of link to open
+with tools such as browsers. When printing to stdout, you can ignore this text.
