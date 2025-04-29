@@ -57,7 +57,6 @@ function buffer:flush()
     end
 
     -- ASSUMES WRITES ARE ATOMIC
-    -- FAT16 GO KYS
     local ok, err = self.stream.write(self.stream.resource, self.buffer)
     if ok then
         self.buffer = ""
