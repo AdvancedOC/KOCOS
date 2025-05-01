@@ -644,6 +644,13 @@ function okffs:permissionsOf(path)
     return 2^16-1
 end
 
+function okffs:setPermissionsOf(path, perms)
+    local entry = self:entryOf(path)
+    if not entry then return end
+    entry.permissions = perms
+    self:saveDirectoryEntry(entry)
+end
+
 function okffs:modifiedTime(path)
     local entry = self:entryOf(path)
     if entry then return entry.mtimeMS / 1000 end

@@ -142,6 +142,12 @@ function io.touch(path, permissions)
     return sys.touch(path, permissions)
 end
 
+function io.chown(path, permissions)
+    path = io.resolved(path)
+    -- TODO: make permissions default to process perms
+    return sys.chown(path, permissions)
+end
+
 function io.list(path)
     path = io.resolved(path)
     -- TODO: make permissions default to process perms

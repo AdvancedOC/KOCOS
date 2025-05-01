@@ -467,6 +467,13 @@ function fs.permissionsOf(path)
 end
 
 ---@param path string
+---@param perms integer
+function fs.setPermissionsOf(path, perms)
+    local manager, truePath = fs.resolve(path)
+    return manager:setPermissionsOf(truePath, perms)
+end
+
+---@param path string
 ---@return integer
 function fs.modifiedTime(path)
     local manager, truePath = fs.resolve(path)

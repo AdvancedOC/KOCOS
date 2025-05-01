@@ -4,11 +4,6 @@ Ability to write to partitions and drives.
 
 Ability to actually use the damn thing.
 
-# Chown syscall
-
-A simple syscall to change a permission at a path.
-Requires write permissions for that path.
-
 # mopen mode changes
 
 `r` should return a read-only buffer.

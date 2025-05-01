@@ -481,6 +481,10 @@ function devfs:modifiedTime()
     return os.time()
 end
 
+function devfs:setPermissionsOf(path, perms)
+    error("unsupported")
+end
+
 KOCOS.fs.addDriver(devfs)
 
 KOCOS.defer(function()

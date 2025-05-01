@@ -11,6 +11,11 @@ function sys.touch(path, permissions)
     return err == nil, err
 end
 
+function sys.chown(path, permissions)
+    local err = syscall("chown", path, permissions)
+    return err == nil, err
+end
+
 function sys.mkdir(path, permissions)
     local err = syscall("mkdir", path, permissions)
     return err == nil, err

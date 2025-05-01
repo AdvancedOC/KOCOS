@@ -8,6 +8,7 @@ function managedfs.create(partition)
     return setmetatable({
         partition = partition,
         disk = partition.drive,
+        permsMap = {},
     }, managedfs)
 end
 
@@ -60,6 +61,7 @@ function managedfs:size(path)
 end
 
 function managedfs:remove(path)
+    self.permsMap[path] = nil
     return self.disk.remove(path)
 end
 
@@ -84,7 +86,19 @@ function managedfs:touch(path)
 end
 
 function managedfs:permissionsOf(path)
+    if self.permsMap[path] then return self.permsMap[path] end
+    if self.disk.isReadOnly() then
+        local perms = KOCOS.perms
+        return perms.encode(perms.ID_ALL, perms.BIT_READABLE, perms.ID_ALL, perms.BIT_READABLE)
+    end
     return 2^16-1 -- Don't ask
+end
+
+function managedfs:setPermissionsOf(path, perms)
+    if not self.disk.exists(path) then
+        error("bad path")
+    end
+    self.permsMap[path] = perms
 end
 
 ---@param path string

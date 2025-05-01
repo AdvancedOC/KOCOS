@@ -36,7 +36,7 @@ function syscalls.open(proc, path, mode)
 end
 
 ---@param path string
----@param permissions string
+---@param permissions integer
 function syscalls.touch(proc, path, permissions)
     assert(type(path) == "string", "bad path")
     assert(permissions >= 0 and permissions < 2^16, "bad permissions")
@@ -46,6 +46,20 @@ function syscalls.touch(proc, path, permissions)
     assert(KOCOS.perms.canWrite(proc.uid, parentPerms), "permission denied")
 
     assert(KOCOS.fs.touch(path, permissions))
+end
+
+---@param path string
+---@param permissions integer
+function syscalls.chown(proc, path, permissions)
+    assert(type(path) == "string", "bad path")
+    assert(permissions >= 0 and permissions < 2^16, "bad permissions")
+    assert(KOCOS.fs.exists(path), "not found")
+
+    local oldPerms = KOCOS.fs.permissionsOf(path)
+    assert(KOCOS.perms.canWrite(proc.uid, oldPerms), "permission denied")
+
+    KOCOS.fs.setPermissionsOf(path, permissions)
+    return true
 end
 
 ---@param path string
