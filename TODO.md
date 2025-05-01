@@ -4,13 +4,6 @@ Ability to write to partitions and drives.
 
 Ability to actually use the damn thing.
 
-# mopen mode changes
-
-`r` should return a read-only buffer.
-`w` should return a mutable buffer with overwriting.
-`a` should return a stream.
-`i` should return a mutable buffer with inserting.
-
 # complete syscalls
 
 `syscalls` is very incomplete.

@@ -231,8 +231,9 @@ function fs.write(file, data)
         return file.manager:write(file.fd, data)
     elseif file.kind == "memory" then
         if file.buffer == nil then return false, "closed" end
+        if file.mode == "r" then return false, "bad file descriptor" end
         ---@cast file KOCOS.MemoryFile
-        if file.mode == "w" then
+        if file.mode == "a" then
             if (#file.buffer + #data) > file.bufcap then
                 return false, "out of space"
             end
@@ -266,7 +267,7 @@ function fs.read(file, len)
     elseif file.kind == "memory" then
         if file.buffer == nil then return end
         ---@cast file KOCOS.MemoryFile
-        if file.mode == "w" then
+        if file.mode == "a" then
             if #file.buffer == 0 then
                 pcall(file.events.push, "starved", len)
             end
@@ -285,8 +286,8 @@ function fs.read(file, len)
 
         local data = file.buffer:sub(file.cursor+1, (len ~= math.huge) and file.cursor+len or nil)
         if #data == 0 then
-            if file.mode == "w" then
-                -- w means this is used as an endless stream
+            if file.mode == "a" then
+                -- a means this is used as an endless stream
                 return "", nil
             end
             return nil, nil
@@ -313,7 +314,7 @@ end
 function fs.seek(file, whence, offset)
     if file.kind == "memory" then
         ---@cast file KOCOS.MemoryFile
-        if file.mode == "w" then
+        if file.mode == "a" then
             return nil, "unable to seek stream"
         end
         if whence == "set" then

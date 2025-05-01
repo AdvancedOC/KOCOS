@@ -81,15 +81,13 @@ end
 ---@param mode? iomode
 ---@param contents? string
 ---@param limit? integer
----@param bufmode? iomode
-function io.tmpfile(mode, contents, limit, bufmode)
+function io.tmpfile(mode, contents, limit)
     mode = mode or "r"
     contents = contents or ""
     limit = limit or math.huge
-    bufmode = bufmode or "w"
     local fd, err = sys.mopen(mode:sub(1, 1), contents, limit)
     if err then return nil, err end
-    return io.from(fd, bufmode)
+    return io.from(fd, mode)
 end
 
 ---@param filename string

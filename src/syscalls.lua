@@ -84,11 +84,11 @@ function syscalls.remove(proc, path)
     assert(KOCOS.fs.remove(path))
 end
 
----@param mode "w"|"r"
+---@param mode "w"|"r"|"a"
 ---@param contents string
 ---@param limit integer
 function syscalls.mopen(proc, mode, contents, limit)
-    assert(mode == "w" or mode == "r", "invalid mode")
+    assert(mode == "w" or mode == "r" or mode == "a", "invalid mode")
     assert(type(contents) == "string", "invalid contents")
     assert(type(limit) == "number", "invalid limit")
 
