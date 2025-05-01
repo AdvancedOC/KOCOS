@@ -397,7 +397,7 @@ function tty:processEscape(c)
         ---@type string?
         local data = nil
         for _, terminator in ipairs(terminators) do
-            if string.endswith(self.escape, terminator) then
+            if lib.sub(self.escape, -#terminator) == terminator then
                 data = self.escape:sub(2, -#terminator - 1) -- from 2nd char (past ]) up until terminator
                 break
             end

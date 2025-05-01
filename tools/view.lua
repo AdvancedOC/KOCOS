@@ -29,7 +29,7 @@ stream:seek("set", 0)
 
 local function addLine(line)
     line = line:gsub(".", function(c)
-        if c:byte() > 127 or not keyboard.isPrintable(c:byte()) then return "^@" end
+        if not keyboard.isPrintable(c:byte()) then return "^@" end
         return c
     end)
     table.insert(lines, line)

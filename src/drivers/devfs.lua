@@ -98,7 +98,7 @@ function devfs:open(path, mode)
     if mode == "a" then return nil, "bad mode" end -- it just simply doesn't work on drives and partitions
     for addr, drive in KOCOS.vdrive.list() do
         if path == "drives/" .. formatUUID(addr) then
-            local proxy = table.copy(drive) -- we plan to mutate
+            local proxy = drive -- we plan to mutate
             proxy.current = 0
             proxy.mode = mode
             return self:addProxy(proxy)
@@ -127,7 +127,32 @@ end
 -- In case in the future we want to support partitions with different kinds of backing storage
 
 local function writeBuffer(addr, off, data)
-    local proxy = component.proxy(addr)
+    local proxy = KOCOS.vdrive.proxy(addr) or component.proxy(addr)
+    if not proxy then return false, "bad file descriptor" end
+
+    if proxy.type == "drive" then
+        local capacity = proxy.getCapacity()
+        if off + #data > capacity then return false, "out of space" end
+        local sectorSize = proxy.getSectorSize()
+        while #data > 0 do
+            if (#data >= sectorSize) and ((off / sectorSize) == math.floor(off / sectorSize)) then
+                local sector = math.floor(off / sectorSize)
+                proxy.writeSector(sector+1, data:sub(1, sectorSize))
+                data = data:sub(sectorSize+1)
+                off = off + sectorSize
+            else
+                local b = data:byte()
+                if b >= 128 then
+                    b = b - 256
+                end
+                proxy.writeByte(off+1, b)
+                off = off + 1
+                data = data:sub(2)
+            end
+        end
+        return true
+    end
+    return false, "bad file descriptor"
 end
 
 local function readBuffer(addr, off, limit)
@@ -190,6 +215,12 @@ function devfs:write(fd, data)
         eeprom.setData(src)
         proxy.current = proxy.current + #data
         return true
+    end
+    if proxy.type == "drive" then
+        return writeBuffer(proxy.address, proxy.current, data)
+    end
+    if proxy.type == "partition" then
+        return writeBuffer(proxy.partition.drive.address, proxy.partition.startByte + proxy.current, data)
     end
     return nil, "bad file descriptor"
 end
@@ -303,7 +334,6 @@ function devfs:ioctl(fd, action, ...)
     elseif action == "part:drive" and proxy.type == "partition" then
         return proxy.partition.drive.address
     end
-    if proxy.mode ~= "w" then error("permission denied") end
     return component.invoke(proxy.address, action, ...)
 end
 
