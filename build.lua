@@ -28,6 +28,7 @@ local sources = {
     "src/drivers/internet.lua",
     "src/drivers/domain.lua",
     "src/drivers/radio_sockets.lua",
+    "src/drivers/ktar.lua",
     -- Needs to be last cuz self-boots.
     "src/postlude.lua",
 }

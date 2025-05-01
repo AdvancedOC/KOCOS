@@ -611,6 +611,25 @@ function fs.isMounted(partition)
     return false, ""
 end
 
+function fs.mountRoot()
+    if globalTranslation[""] then return end
+    local root = KOCOS.defaultRoot
+    local parts = fs.getPartitions(component.proxy(root))
+    ---@type KOCOS.Partition?
+    local rootPart
+
+    for i=1,#parts do
+        if (parts[i].kind == "root") or (KOCOS.rootPart == parts[i].uuid) then
+            if parts[i].uuid == (KOCOS.rootPart or parts[i].uuid) then
+                rootPart = parts[i]
+            end
+        end
+    end
+
+    assert(rootPart, "missing root partition on " .. root)
+    globalTranslation[""] = assert(fs.driverFor(rootPart), "MISSING ROOTFS DRIVER OH NO")
+end
+
 KOCOS.fs = fs
 
 ---@param path string
@@ -648,26 +667,20 @@ end
 KOCOS.log("Loaded filesystem")
 
 KOCOS.defer(function()
-    local root = KOCOS.defaultRoot
-    local parts = fs.getPartitions(component.proxy(root))
-    ---@type KOCOS.Partition?
-    local rootPart
-
-    for i=1,#parts do
-        if (parts[i].kind == "root") or (KOCOS.rootPart == parts[i].uuid) then
-            if parts[i].uuid == (KOCOS.rootPart or parts[i].uuid) then
-                rootPart = parts[i]
-            end
-        end
+    if KOCOS.ramImage then
+        KOCOS.log("Parsing ramfs...")
+        local image = KOCOS.ramfs.parse(KOCOS.ramImage)
+        assert(image, "corrupted ram image")
+        globalTranslation[""] = KOCOS.ramfs.manager(image)
+        KOCOS.log("Mounted ramfs root")
+    else
+        fs.mountRoot()
+        KOCOS.log("Mounted default root")
     end
 
-    assert(rootPart, "missing root partition on " .. root)
-    globalTranslation[""] = assert(fs.driverFor(rootPart), "MISSING ROOTFS DRIVER OH NO")
-    KOCOS.log("Mounted default root")
-
-    if not fs.exists("/tmp") then assert(fs.mkdir("/tmp")) end
     -- apparently it can be nil?
     if not computer.tmpAddress() then return end
+    if not fs.exists("/tmp") then assert(fs.mkdir("/tmp")) end
     local tmpfs = component.proxy(computer.tmpAddress())
     local partitions = fs.getPartitions(tmpfs)
     fs.mount("/tmp", partitions[1])
@@ -723,3 +736,157 @@ end
 KOCOS.vdrive = vdrive
 
 KOCOS.log("Loaded vdrive system")
+
+local ramfs = {}
+
+---@alias KOCOS.RamFS.Image {[string]: string | string[]}
+
+---@alias KOCOS.RamFS.Parser fun(data: string): KOCOS.RamFS.Image?
+
+---@type KOCOS.RamFS.Parser[]
+ramfs.parsers = {}
+
+---@param parser KOCOS.RamFS.Parser
+function ramfs.addParser(parser)
+    table.insert(ramfs.parsers, parser)
+end
+
+---@param data string
+---@return KOCOS.RamFS.Image?
+function ramfs.parse(data)
+    for i=#ramfs.parsers, 1, -1 do
+        local parser = ramfs.parsers[i]
+        local image = parser(data)
+        if image then return image end
+    end
+end
+
+---@param image KOCOS.RamFS.Image
+function ramfs.manager(image)
+    local start = os.time()
+    local uuid = KOCOS.testing.uuid()
+    ---@type {[integer]: {data: string, cursor: integer}}
+    local handles = {}
+    return {
+        open = function(_, path, mode)
+            if mode ~= "r" then return nil, "bad mode" end
+            local data = image[path]
+            if type(data) ~= "string" then return nil, "bad path" end
+            local fd = #handles
+            while handles[fd] do fd = fd + 1 end
+            handles[fd] = {
+                data = data,
+                cursor = 0,
+            }
+            return fd
+        end,
+        write = function()
+            return false, "bad file descriptor"
+        end,
+        read = function(_, fd, len)
+            local handle = handles[fd]
+            if not handle then return nil, "bad file descriptor" end
+            if len == math.huge then len = #handle.data end
+            local chunk = handle.data:sub(handle.cursor+1, handle.cursor+len)
+            handle.cursor = handle.cursor + #chunk
+            if chunk == "" then return end
+            return chunk
+        end,
+        seek = function(_, fd, whence, offset)
+            local handle = handles[fd]
+            if not handle then return nil, "bad file descriptor" end
+            local size = #handle.data
+            local cur = handle.cursor
+
+            if whence == "set" then
+                cur = offset
+            elseif whence == "cur" then
+                cur = cur + offset
+            elseif whence == "end" then
+                cur = size - offset
+            end
+
+            handle.cursor = math.clamp(cur, 0, size)
+            return handle.cursor
+        end,
+        close = function(_, fd)
+            handles[fd] = nil
+            return true
+        end,
+        type = function(_, path)
+            local data = image[path]
+            if type(data) == "string" then
+                return "file"
+            elseif type(data) == "table" then
+                return "directory"
+            else
+                return "missing"
+            end
+        end,
+        list = function(_, path)
+            local files = image[path]
+            if type(files) ~= "table" then return nil, "not a directory" end
+            return files
+        end,
+        size = function(_, path)
+            local data = image[path]
+            if type(data) == "string" then return #data end
+            return 0
+        end,
+        remove = function(_, path)
+            return false, "readonly"
+        end,
+        spaceUsed = function()
+            return 0
+        end,
+        spaceTotal = function()
+            return 0
+        end,
+        mkdir = function()
+            return false, "readonly"
+        end,
+        touch = function()
+            return false, "readonly"
+        end,
+        permissionsOf = function()
+            local perms = KOCOS.perms
+            return perms.encode(perms.ID_ALL, perms.BIT_READABLE, perms.ID_ALL, perms.BIT_READABLE)
+        end,
+        setPermissionsOf = function()
+            return false, "readonly"
+        end,
+        modifiedTime = function()
+            return start
+        end,
+        ioctl = function()
+            error("unsupported")
+        end,
+        getPartition = function()
+            ---@type KOCOS.Partition
+            return {
+                uuid = uuid,
+                drive = {
+                    type = "ramfs",
+                    slot = -1,
+                    address = uuid,
+                    getLabel = function()
+                        return "ramfs-" .. uuid:sub(1, 8)
+                    end,
+                    setLabel = function()
+                        return "ramfs-" .. uuid:sub(1, 8)
+                    end,
+                },
+                readonly = true,
+                startByte = 0,
+                byteSize = 0,
+                kind = "root",
+                name = "ramfs-" .. uuid:sub(1, 8),
+                storedKind = "ramfs",
+            }
+        end,
+    }
+end
+
+KOCOS.ramfs = ramfs
+
+KOCOS.log("Loaded ramfs system")
