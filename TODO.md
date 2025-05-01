@@ -1,9 +1,3 @@
-# Complete devfs
-
-Ability to write to partitions and drives.
-
-Ability to actually use the damn thing.
-
 # More unmanaged filesystem formats
 > Because you can never have enough
 
