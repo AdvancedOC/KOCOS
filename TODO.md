@@ -4,10 +4,6 @@ Ability to write to partitions and drives.
 
 Ability to actually use the damn thing.
 
-# complete syscalls
-
-`syscalls` is very incomplete.
-
 # Make TTY support UTF-8
 
 Currently TTY uses Lua patterns instead of a proper escape parser.

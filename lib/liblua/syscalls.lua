@@ -31,6 +31,11 @@ function sys.stat(path)
     return info, err
 end
 
+function sys.cstat(path)
+    local err, info = syscall("cstat", path)
+    return info, err
+end
+
 function sys.mopen(mode, contents, limit)
     local err, fd = syscall("mopen", mode, contents, limit)
     return fd, err
@@ -267,6 +272,106 @@ end
 function sys.aio_write(fd, data)
     local err, packet = syscall("aio_write", fd, data)
     return packet, err
+end
+
+function sys.ttyopen(graphics, keyboard)
+    local err, fd = syscall("ttyopen", graphics, keyboard)
+    return fd, err
+end
+
+function sys.attach(func, name)
+    local err, tid = syscall("attach", func, name)
+    return tid, err
+end
+
+function sys.openlock()
+    local err, fd = syscall("openlock")
+    return fd, err
+end
+
+function sys.tryLock(fd)
+    local err, locked = syscall("tryLock", fd)
+    return locked, err
+end
+
+function sys.lock(fd, timeout)
+    local err, locked = syscall("lock", fd, timeout)
+    return locked, err
+end
+
+function sys.unlock(fd, timeout)
+    local err, locked = syscall("lock", fd, timeout)
+    return locked, err
+end
+
+function sys.tkill(tid, msg, trace)
+    local err = syscall("tkill", tid, msg, trace)
+    return err == nil, err
+end
+
+function sys.tjoin(tid)
+    local err = syscall("tjoin", tid)
+    return err == nil, err
+end
+
+function sys.tstatus(tid)
+    local err, status = syscall("tstatus", tid)
+    return status, err
+end
+
+function sys.tsuspend(tid)
+    local err = syscall("tsuspend", tid)
+    return err == nil, err
+end
+
+function sys.tresume(tid)
+    local err = syscall("tresume", tid)
+    return err == nil, err
+end
+
+function sys.psymbol(symbol)
+    local err, data = syscall("psymbol", symbol)
+    return data, err
+end
+
+function sys.psource(symbol)
+    local err, data = syscall("psource", symbol)
+    return data, err
+end
+
+function sys.login(user, ring, password)
+    local err = syscall("login", user, ring, password)
+    return err == nil, err
+end
+
+function sys.uinfo(user)
+    local err, info = syscall("uinfo", user)
+    return info, err
+end
+
+function sys.uginfo(group)
+    local err, info = syscall("uginfo", group)
+    return info, err
+end
+
+function sys.ulist(group)
+    local err, list = syscall("ulist", group)
+    return list, err
+end
+
+function sys.ugroups()
+    local err, list = syscall("ugroups")
+    return list, err
+end
+
+function sys.ufindUser(name)
+    local err, uid = syscall("ufindUser", name)
+    return uid, err
+end
+
+function sys.ufindGroup(name)
+    local err, uid = syscall("ufindGroup", name)
+    return uid, err
 end
 
 return sys
