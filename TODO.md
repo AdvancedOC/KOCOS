@@ -21,11 +21,6 @@ Currently TTY uses Lua patterns instead of a proper escape parser.
 This is fine for some things that can't return unicode, like parsing TTY responses,
 but not great for the TTY's OSC command, which absolutely should be able to receive Unicode.
 
-# Stream files in fs
-
-A `mkstream` syscall would make a new `stream` file, which has a callback for writes, reads, seeks and close.
-This can be used by programs using virtual standard I/O to be more reactive than waiting for the scheduler to resume them.
-
 # Release v0.0.1
 
 At this point the kernel is suitable for an initial alpha release.

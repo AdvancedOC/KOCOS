@@ -168,6 +168,27 @@ function syscalls.mkpipe(proc, inFd, outFd)
     error(fd)
 end
 
+function syscalls.mkstream(proc, vtable)
+    assert(type(vtable) == "table", "bad vtable")
+    -- TODO: validate vtable structure
+
+    local f = assert(KOCOS.fs.mkstream(vtable))
+
+    ---@type KOCOS.FileResource
+    local res = {
+        kind = "file",
+        file = f,
+    }
+
+    local ok, fd = pcall(KOCOS.process.moveResource, proc, res)
+    if ok then
+        return fd
+    end
+
+    KOCOS.fs.close(f)
+    error(fd)
+end
+
 ---@param protocol string
 ---@param subprotocol string
 function syscalls.socket(proc, protocol, subprotocol, config)

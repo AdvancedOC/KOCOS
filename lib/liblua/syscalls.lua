@@ -41,6 +41,11 @@ function sys.mkpipe(inFD, outFD)
     return fd, err
 end
 
+function sys.mkstream(vtable)
+    local err, fd = syscall("mkstream", vtable)
+    return fd, err
+end
+
 function sys.kvmopen(name)
     local err, fd = syscall("kvmopen", name)
     return fd, err

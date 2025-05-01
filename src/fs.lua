@@ -5,7 +5,7 @@
 ---@class KOCOS.File
 ---@field mode "w"|"r"|"a"|"i"
 ---@field refc integer
----@field kind "disk"|"memory"|"pipe"
+---@field kind "disk"|"memory"|"pipe"|"stream"
 ---@field events KOCOS.EventSystem
 
 ---@class KOCOS.DiskFile: KOCOS.File
@@ -23,6 +23,14 @@
 ---@field kind "pipe"
 ---@field output KOCOS.File
 ---@field input KOCOS.File
+
+---@class KOCOS.StreamFile: KOCOS.File
+---@field kind "stream"
+---@field writer fun(data: string): boolean, string
+---@field reader fun(limit: integer): string?, string?
+---@field seek fun(whence: seekwhence, off: integer): integer?, string
+---@field close fun(): boolean, string
+---@field ioctl fun(...): ...
 
 local fs = {}
 
@@ -112,6 +120,23 @@ function fs.mkpipe(input, output)
     return pipe
 end
 
+---@param opts table
+---@return KOCOS.StreamFile
+function fs.mkstream(opts)
+    ---@type KOCOS.StreamFile
+    return {
+        mode = "w",
+        kind = "stream",
+        refc = 1,
+        events = KOCOS.event.create(KOCOS.maxEventBacklog),
+        writer = opts.write or function() return false, "unsupported" end,
+        reader = opts.read or function() end,
+        close = opts.close or function() end,
+        seek = opts.seek or function() return nil, "unsupported" end,
+        ioctl = opts.ioctl or function() error("unsupported") end
+    }
+end
+
 ---@param path string
 ---@param mode "w"|"r"|"a"|"i"
 ---@return KOCOS.DiskFile?, string
@@ -190,6 +215,9 @@ function fs.close(file)
         ---@cast file KOCOS.PipeFile
         pcall(fs.close, file.input)
         pcall(fs.close, file.output)
+    elseif file.kind == "stream" then
+        ---@cast file KOCOS.StreamFile
+        return file.close()
     end
     return true, ""
 end
@@ -221,6 +249,9 @@ function fs.write(file, data)
     elseif file.kind == "pipe" then
         ---@cast file KOCOS.PipeFile
         return fs.write(file.output, data)
+    elseif file.kind == "stream" then
+        ---@cast file KOCOS.StreamFile
+        return file.writer(data)
     end
     return false, "bad file"
 end
@@ -268,6 +299,9 @@ function fs.read(file, len)
     elseif file.kind == "pipe" then
         ---@cast file KOCOS.PipeFile
         return fs.read(file.input, len)
+    elseif file.kind == "stream" then
+        ---@cast file KOCOS.StreamFile
+        return file.reader(len)
     end
     return nil, "bad file"
 end
@@ -292,11 +326,12 @@ function fs.seek(file, whence, offset)
         if file.cursor < 0 then file.cursor = 0 end
         if file.cursor > #file.buffer then file.cursor = #file.buffer end
         return file.cursor, ""
-    end
-
-    if file.kind == "disk" then
+    elseif file.kind == "disk" then
         ---@cast file KOCOS.DiskFile
         return file.manager:seek(file.fd, whence, offset)
+    elseif file.kind == "stream" then
+        ---@cast file KOCOS.StreamFile
+        return file.seek(whence, offset)
     end
 
     -- TODO: implement
@@ -325,11 +360,12 @@ function fs.ioctl(file, action, ...)
             file.buffer = nil
             return
         end
-    end
-
-    if file.kind == "disk" then
+    elseif file.kind == "disk" then
         ---@cast file KOCOS.DiskFile
         return file.manager:ioctl(file.fd, action, ...)
+    elseif file.kind == "stream" then
+        ---@cast file KOCOS.StreamFile
+        return file.ioctl(...)
     end
 
     error("bad file")
