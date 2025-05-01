@@ -6,8 +6,7 @@
 Basic FAT16.
 No `i` mode or `erase`.
 
-## Our own partition table
-> Name not yet decided. Naming things is an unsolved computer science problem.
+## KPR (Kocos Partition Record)
 
 A simple partition table, starting at the last sector. (for compatibility with BBR while minimizing wasted space.)
 Its structs would be:
@@ -44,14 +43,81 @@ struct partition {
 };
 ```
 
-## A new, conventional filesystem
-> Name not yet decided. Naming things remains an unsolved computer science problem.
+## LightFS (Lightweight File System)
 
 A conventional filesystem (no `i` mode or `erase` syscall support like OKFFS), designed to be fast and simple.
 Its format should be simple enough to fit on a BIOS.
-Exact details not known yet.
 
-Ideas:
+```c
+// First sector. Rest of sector is 0'd.
+// Sector IDs start from 0, not 1 like in OC drives.
+// Its all little endian btw
+// Block IDs also start from 0, though block 0 is the superblock.
+struct superblock {
+    char header[8] = "LightFS\0";
+    uint24_t nextFreeBlock;
+    uint24_t rootSector;
+    uint24_t firstFreeSector; // first sector in free list.
+    uint8_t mappingAlgorithm; // mapping algorithm used on the device
+};
+
+enum mappingAlgorithm {
+    INITIAL = 1,
+};
+
+struct block {
+    uint24_t nextBlockSector; // sector of next block in block list. 0 
+    uint8_t data[]; // rest of sector
+};
+
+struct freeBlock {
+    uint24_t nextBlockSector; // once we free this, the next block to put in the free list, unless it is 0.
+    uint24_t nextFreeSector; // sector of next block in the free list
+};
+
+enum ftype {
+    FILE = 0,
+    DIRECTORY = 1,
+};
+
+// directory blocklists are just like file blocklists, but the file contents are a sequence of dirEntries.
+struct dirEntry {
+    char name[32]; // NULL-terminated. Empty for deleted files.
+    uint64_t mtimeMS;
+    uint16_t permissions;
+    uint8_t ftype;
+    uint24_t firstBlockListSector;
+    uint32_t fileSize;
+    uint8_t reserved[14];
+};
+```
+
+### Free List
+
+The free list stores the first blocks in the block lists that are freed. When a block is recycled from the free list, the free list is set to
+the next block in the original block list that was freed (the `nextBlockSector` field), unless it is 0, in which case it is set to the next freed block
+list (the `nextFreeSector` field).
+
+### Block ID to Sector
+
+LightFS, to minimize time spent seeking, using **platter-aware block ID to sector mappings**, which means the next block ID is more likely than not in the
+same position on the next platter, which means there is no need to seek. (which can be very slow)
+
+The algorithm for mapping Block IDs to sectors, given a `platterCount` and `totalSectors`, is:
+```lua
+-- For mappingAlgorithm = INITIAL
+local function initial(blockID, platterCount, totalSectors)
+    local blocksPerPlatter = math.max(1, math.floor(totalSectors / platterCount))
+
+    local x = math.floor(blockID / blocksPerPlatter)
+    local y = blockID % blocksPerPlatter
+
+    return x + y * blocksPerPlatter
+end
+```
+This algorithm does mean that LightFS partitions are **non-resizable without re-formatting**, because the variables in this equation would change.
+
+### Ideas
 - Instead of free list, the blocks between the superblock and the free space have a byte at the start, with a bit flag that stores if they are in use. This
 means freeing can be, well, almost free, as there is basically no need to seek.
 - Blocks have headers with the special starting flags byte but also the next block in the list.
