@@ -9,4 +9,4 @@ local f = assert(io.open(file, "r"))
 local code = f:read("a")
 assert(f:close())
 
-return load(code, "=" .. file)(table.unpack(arg))
+return assert(load(code, "=" .. file))(table.unpack(arg))

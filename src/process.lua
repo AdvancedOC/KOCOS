@@ -328,16 +328,7 @@ local function rawSpawn(init, config)
     if type(init) == "function" then
         proc:attach(init)
     elseif type(init) == "string" then
-        local loaded = false
-        for _, loader in ipairs(process.loaders) do
-            local ok, data = loader.check(proc, init)
-            if ok then
-                loader.load(proc, data)
-                loaded = true
-                break
-            end
-        end
-        assert(loaded, "missing loader")
+        proc:loadExecutable(init)
     end
 
     process.procs[pid] = proc
@@ -351,6 +342,21 @@ function process.spawn(init, config)
         return val
     end
     return nil, val
+end
+
+---@param init string
+function process:loadExecutable(init)
+    local loaded = false
+    for i=#process.loaders, 1, -1 do
+        local loader = process.loaders[i]
+        local ok, data = loader.check(self, init)
+        if ok then
+            loader.load(self, data)
+            loaded = true
+            break
+        end
+    end
+    assert(loaded, "missing loader")
 end
 
 function process:attach(func, name)
@@ -483,6 +489,7 @@ function process.run()
     process.nextThreads = {}
 end
 
+-- Raw lua file runner
 process.addLoader({
     check = function (proc, path)
         local data = KOCOS.readFile(path)
@@ -493,6 +500,57 @@ process.addLoader({
         proc:attach(function()
             return data(table.unpack(proc.args))
         end, "main")
+    end,
+})
+
+-- Shebang runner
+process.addLoader({
+    check = function (proc, path)
+        local fs = KOCOS.fs
+        local f = fs.open(path, "r")
+        if not f then return false end -- nah
+        local data = ""
+        while true do
+            if #data > 1024 then
+                fs.close(f)
+                return false
+            end
+            local chunk = fs.read(f, 64)
+            if not chunk then
+                fs.close(f)
+                return false
+            end
+            data = data .. chunk
+            if string.find(chunk, "\n") then
+                break
+            end
+        end
+        fs.close(f)
+        local term = assert(string.find(data, "\n"))
+        local line = string.sub(data, 1, term)
+        if line:sub(1, 2) ~= "#!" then return false end
+        line = line:sub(3)
+        local parts = {}
+        for part in string.gmatch(line, "[^%s]+") do
+            table.insert(parts, part)
+        end
+        table.insert(parts, fs.canonical(path))
+        return true, parts
+    end,
+    load = function (proc, data)
+        KOCOS.logAll(table.unpack(data))
+        local init = table.remove(data, 1)
+        if not KOCOS.fs.exists(init) then
+            error("Missing interpreter: " .. init)
+        end
+        for i=1,#data do
+            -- this works because yes.
+            table.insert(proc.args, i, data[i])
+        end
+        proc.args[0] = init
+        proc.namespace.arg = proc.args
+        KOCOS.logAll(table.unpack(proc.namespace.arg))
+        proc:loadExecutable(init) -- can stackoverflow but fuck off now
     end,
 })
 

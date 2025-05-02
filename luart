@@ -1,6 +1,10 @@
 KELPv1
-Emain
-122
+E@deps
+E
+/lib/liblua.so@sourcemap
+E
+main=luart.luamain
+12A
 -- LuaRT, the binary that runs Lua files
 
 local file = arg[1] or "/repl.lua"
@@ -12,9 +16,4 @@ local f = assert(io.open(file, "r"))
 local code = f:read("a")
 assert(f:close())
 
-return load(code, "=" .. file)(table.unpack(arg))
-@sourcemap
-E
-main=luart.lua@deps
-E
-/lib/liblua.so
+return assert(load(code, "=" .. file))(table.unpack(arg))

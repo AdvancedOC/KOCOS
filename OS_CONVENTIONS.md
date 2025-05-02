@@ -24,6 +24,7 @@ The filesystem structure should be:
 - `/bin/init` should be the init system's main binary. However, running it after a boot is undefined behavior.
 - `/bin/sh` can be the shell path, though if it is changed, the SHELL environment variable should contain the full path to it. SHELL may also be specified
 even if the path is `/bin/sh`, though if it is absent, programs can assume it is `/bin/sh`.
+- `/bin/env` should be an `env` program, more on the env program later.
 - `/lib` should contain libraries, each starting with `lib` and ending with either `.lua` if they're Lua source code, or `.so` if they're built binaries.
 `require` should be able to load them, with `require("foo")` loading in `/lib/libfoo.so`'s `foo` module, and `require("foo.abc")` loading in `/lib/libfoo.so`'s
 `foo.abc` module. It should contain `/lib/liblua.so`, and may also contain `/lib/libkelp.so`, or it may be provided by liblua.
@@ -135,3 +136,22 @@ resolution.
 - `^L` will represent a form of a man-link. The text shown in place of the link is terminated by another `^L`, though all the other escapes apply inside.
 The link itself is terminated by yet another `^L`. The links can point to a man page, file containing a man page, or some kind of link to open
 with tools such as browsers. When printing to stdout, you can ignore this text.
+
+# The env program
+
+The `/bin/env` program is essential for shell scripting. It can run commands with new environment variables and arguments, respecting
+`$PATH`.
+
+That way, shell scripts can use `/bin/env <shell>` to ensure they are ran with the correct shell, as `/bin/sh` may be overwritten
+with a shell the script did not expect.
+
+Its syntax shall be `/bin/env [options] [NAME=VALUE] [COMMAND [...ARGS]]`.
+This means you can specify some options beforehand (which should start with a `-` or a `--`), though do note that their behavior may
+not be the same everyone and not all platforms may support them.
+`NAME=VALUE` arguments go after options, and tell the env program to add to set the `NAME` environment variable to `VALUE` for the
+command.
+
+After those arguments is `COMMAND` and `...ARGS`. The `COMMAND` can be a full path, though if it is not, it should be searched
+through the same way a shell would, using the `PATH` environment variable. `...ARGS` are the arguments to pass of there.
+
+If no command is specified, `/bin/env` should print the environment it would pass on to the command.

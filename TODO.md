@@ -1,5 +1,20 @@
+# SHEBANGS
+
+WE NEED SHEBANGS
+
+Super standard shebangs
+
+```sh
+#!/usr/bin/env scute
+
+echo "Hello, there!"
+```
+
 # More unmanaged filesystem formats
 > Because you can never have enough
+
+## OSDI (Open Simple Disk Info)
+> https://github.com/oc-ulos/oc-cynosure-2/blob/dev/src/fs/partition/osdi.lua
 
 ## KPR (Kocos Partition Record)
 
@@ -37,6 +52,7 @@ struct partition {
     uint8_t uuid[16]; // Bytes are in the order seen in the stringified version.
 };
 ```
+The label of the drive is the result of `getLabel`, and thus is not stored in the partition table (unlike MTPT and OSDI, though KOCOS ignores that.)
 
 ## LightFS (Lightweight File System)
 
@@ -127,6 +143,10 @@ No `i` mode or `erase`.
 # Release v0.0.1
 
 At this point the kernel is suitable for an initial alpha release.
+
+# Symlinks
+
+We kinda should have symlinks
 
 # Shrink some things
 
