@@ -1,11 +1,6 @@
 # More unmanaged filesystem formats
 > Because you can never have enough
 
-## FAT16 driver
-
-Basic FAT16.
-No `i` mode or `erase`.
-
 ## KPR (Kocos Partition Record)
 
 A simple partition table, starting at the last sector. (for compatibility with BBR while minimizing wasted space.)
@@ -100,14 +95,17 @@ list (the `nextFreeSector` field).
 
 ### Block ID to Sector
 
-LightFS, to minimize time spent seeking, using **platter-aware block ID to sector mappings**, which means the next block ID is more likely than not in the
+LightFS, to minimize time spent seeking, it uses **platter-aware block ID to sector mappings**, which means the next block ID is more likely than not in the
 same position on the next platter, which means there is no need to seek. (which can be very slow)
 
-The algorithm for mapping Block IDs to sectors, given a `platterCount` and `totalSectors`, is:
+The algorithm for mapping Block IDs to sectors, given a `physicalPlatterCount` and `totalSectors`, is:
 ```lua
 -- For mappingAlgorithm = INITIAL
-local function initial(blockID, platterCount, totalSectors)
-    local blocksPerPlatter = math.max(1, math.floor(totalSectors / platterCount))
+local function initial(blockID, physicalPlatterCount, totalSectors)
+    local sectorsPerPlatter = math.floor(totalSectors / physicalPlatterCount)
+    local logicalPlatterCount = math.floor(totalSectors / sectorsPerPlatter)
+
+    local blocksPerPlatter = math.max(1, math.floor(totalSectors / logicalPlatterCount))
 
     local x = math.floor(blockID / blocksPerPlatter)
     local y = blockID % blocksPerPlatter
@@ -115,17 +113,16 @@ local function initial(blockID, platterCount, totalSectors)
     return x + y * blocksPerPlatter
 end
 ```
+`physicalPlatterCount` is the platter count of the **drive**, whilst `totalSectors` is the amount of sectors in the **partition.**
+
+Due to how `logicalPlatterCount` is computed, it is **highly recommended** to make the partition **platter-aligned.**
+
 This algorithm does mean that LightFS partitions are **non-resizable without re-formatting**, because the variables in this equation would change.
 
-### Ideas
-- Instead of free list, the blocks between the superblock and the free space have a byte at the start, with a bit flag that stores if they are in use. This
-means freeing can be, well, almost free, as there is basically no need to seek.
-- Blocks have headers with the special starting flags byte but also the next block in the list.
-- `spaceUsed` is computed and probably cached, instead of stored as an active block count. This is to eliminate the need to seek often.
-- Free space index not being exactly the sector, but instead the index in a theoretical list of blocks that reduces seeks by going platter-by-platter first.
-Block id would remain as just the sector. Essentially, if there are 4 sectors per platter, and 2 platters, the theoretical list would be sectors 1, 5, 2, 6,
-3, 7, 4, 8.
-- Make heavy use of caching in the driver. At least a read cache like the one in OKFFS.
+## FAT16 driver
+
+Basic FAT16.
+No `i` mode or `erase`.
 
 # Release v0.0.1
 
