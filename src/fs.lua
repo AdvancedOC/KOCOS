@@ -416,7 +416,7 @@ end
 ---@field kind "boot"|"root"|"user"|"reserved"
 ---@field readonly boolean
 
----@alias KOCOS.PartitionParser fun(component: table): KOCOS.Partition[]?, string?
+---@alias KOCOS.PartitionParser fun(component: KOCOS.VDrive|table): KOCOS.Partition[]?, string?
 
 ---@type KOCOS.PartitionParser[]
 fs.partitionParsers = {}
@@ -739,7 +739,7 @@ local vdrive = {}
 ---@field readByte fun(byte: integer): integer
 ---@field readSector fun(sector: integer): string
 ---@field writeByte fun(byte: integer, byte: integer)
----@field writeSector fun(sector: integer)
+---@field writeSector fun(sector: integer, value: string)
 
 ---@alias KOCOS.VDrive.Driver fun(proxy: table): KOCOS.VDrive?
 

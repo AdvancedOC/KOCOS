@@ -23,6 +23,8 @@ local sources = {
     "src/drivers/managedfs.lua",
     "src/drivers/gpt.lua",
     "src/drivers/mtpt.lua",
+    "src/drivers/osdi.lua",
+    "src/drivers/kpr.lua",
     "src/drivers/okffs.lua",
     "src/drivers/tape_drive.lua",
     "src/drivers/internet.lua",

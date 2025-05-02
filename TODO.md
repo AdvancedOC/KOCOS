@@ -1,15 +1,3 @@
-# SHEBANGS
-
-WE NEED SHEBANGS
-
-Super standard shebangs
-
-```sh
-#!/usr/bin/env scute
-
-echo "Hello, there!"
-```
-
 # More unmanaged filesystem formats
 > Because you can never have enough
 

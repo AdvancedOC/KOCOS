@@ -19,6 +19,7 @@ local selected = drives[tonumber(input)]
 assert(selected, "bad input")
 
 local drive = _K.vdrive.proxy(selected)
+assert(drive, "drive no longer available")
 
 local capacity = drive.getCapacity()
 local sectorSize = drive.getSectorSize()
@@ -52,7 +53,6 @@ function formatters.mtpt(parts)
     local maxSectorCount = math.floor(sectorSize / 32) - 1 -- 1 is taken for header
 
     assert(#parts <= maxSectorCount, "too many partitions")
-    assert(parts[1].kind == "user", "MTPT only supports user partitions as first partition")
 
     local eformat = "c20c4>I4>I4"
     local rootSector = string.pack(eformat, "", "mtpt", 0, 0) -- header
@@ -79,6 +79,40 @@ function formatters.mtpt(parts)
     local lastSector = math.floor(capacity / sectorSize)
     printf("Writing to sector %d", lastSector)
     drive.writeSector(lastSector, rootSector)
+end
+
+function formatters.osdi(parts)
+    local maxSectorCount = math.floor(sectorSize / 32) - 1 -- 1 is taken for header
+    assert(#parts <= maxSectorCount, "too many partitions")
+
+    local magic = "OSDI\xAA\xAA\x55\x55"
+    local pack_format = "<I4I4c8I3c13"
+    local partTable = string.pack(pack_format, 1, 0, magic, 0, drive.getLabel() or "")
+
+    for i, part in ipairs(parts) do
+        local t = ""
+        local flags = 0
+        if part.kind == "boot" then
+            flags = flags + 512
+        elseif part.kind == "reserved" then
+            t = "" -- data loss!!
+        elseif part.kind == "root" then
+            t = "kocos"
+        end
+        local name = string.rightpad(part.name, 13)
+        t = string.rightpad(t, 8)
+
+        local start = 1 + part.start / sectorSize
+        assert(math.floor(start) == start, "partition " .. i .. " is not sector aligned")
+        local size = part.size / sectorSize
+        assert(math.floor(size) == size, "partition " .. i .. " is not sector aligned")
+
+        partTable = partTable .. string.pack(pack_format, start, size, t, flags, name)
+    end
+
+    partTable = string.rightpad(partTable, sectorSize)
+
+    drive.writeSector(1, partTable)
 end
 
 while true do
@@ -109,7 +143,13 @@ while true do
     end
     assert(#partitions > 0, "there must be at least 1 partition")
 
-    io.write("Partition format (mtpt): ")
+    local options = {}
+    for k in pairs(formatters) do
+        table.insert(options, k)
+    end
+    table.sort(options)
+
+    io.write("Partition format (" .. table.concat(options, "/") ..  "): ")
     local partFormat = io.read("l")
     local formatter = assert(formatters[partFormat], "unknown format")
 
