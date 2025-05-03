@@ -156,6 +156,12 @@ function tty:sync()
     end
 end
 
+function tty:cleanup()
+    if self.gpu.type == "gpu" then
+        self.gpu.freeAllBuffers()
+    end
+end
+
 function tty:hideCursor()
     if self.isCursorShown then
         self:sync()
@@ -382,11 +388,17 @@ function tty:processEscape(c)
             if params == "5" then
                 self.responses:push("\x1b[" .. tostring(self.w) .. ";" .. tostring(self.h) .. "R")
             end
-            -- non-standard
             if params == "7" then
                 self:sync()
                 local w, h = self.gpu.maxResolution()
                 self.responses:push("\x1b[" .. tostring(w) .. ";" .. tostring(h) .. "R")
+            end
+            if params == "8" then
+                -- VRAM stats
+                self:sync()
+                local free = self.gpu.freeMemory()
+                local total = self.gpu.totalMemory()
+                self.responses:push("\x1b[" .. tostring(math.floor(free or 0)) .. ";" .. tostring(math.floor(total or 0)) .. "R")
             end
         end
     elseif start == ']' then
@@ -406,9 +418,17 @@ function tty:processEscape(c)
             local ok, err = pcall(self.runCommand, self, data)
             if not ok then
                 KOCOS.log("TTY ERROR: %s", err)
+                computer.beep()
             end
             self.escape = nil
+            self:ensureValidState()
         end
+    end
+end
+
+function tty:ensureValidState()
+    if self.gpu.type == "gpu" then
+        self.gpu.setActiveBuffer(0) -- SHIT MUST GO TO SCREEN BY DEFAULT
     end
 end
 
@@ -423,8 +443,14 @@ function tty:runCommand(cmd)
             local x = tonumber(args[1]) or 1
             local y = tonumber(args[2]) or 1
             local s = args[3] or ""
+            local b = tonumber(args[4]) or 0
             -- you can't get a character, but you can change color
-            if #s == 0 then s = self.gpu.get(x, y) end
+            if #s == 0 then s = self.gpu.get(x, y) or " " end
+            if b ~= 0 then
+                self.gpu.setActiveBuffer(b)
+                self.gpu.setForeground(self.fg)
+                self.gpu.setBackground(self.bg)
+            end
             assert(self.gpu.set(x, y, s))
         end
         if op == "fill" then
@@ -433,7 +459,13 @@ function tty:runCommand(cmd)
             local w = tonumber(args[3]) or 1
             local h = tonumber(args[4]) or 1
             local s = args[5]
+            local b = tonumber(args[6]) or 0
             if not s or #s == 0 then s = " " end
+            if b ~= 0 then
+                self.gpu.setActiveBuffer(b)
+                self.gpu.setForeground(self.fg)
+                self.gpu.setBackground(self.bg)
+            end
             assert(self.gpu.fill(x, y, w, h, s))
         end
         if op == "copy" then
@@ -443,6 +475,12 @@ function tty:runCommand(cmd)
             local h = tonumber(args[4]) or 1
             local tx = tonumber(args[5]) or 0
             local ty = tonumber(args[6]) or 0
+            local b = tonumber(args[7]) or 0
+            if b ~= 0 then
+                self.gpu.setActiveBuffer(b)
+                self.gpu.setForeground(self.fg)
+                self.gpu.setBackground(self.bg)
+            end
             assert(self.gpu.copy(x, y, w, h, tx, ty))
         end
         if op == "setResolution" then
@@ -451,6 +489,37 @@ function tty:runCommand(cmd)
             assert(self.gpu.setResolution(w, h))
             self.w = w
             self.h = h
+        end
+        if op == "getBufferSize" then
+            local b = tonumber(args[1]) or 0
+            local w, h = self.gpu.getBufferSize(b)
+            if type(w) ~= "number" then w = "" end
+            if type(h) ~= "number" then h = "" end
+            self.responses:push("\x1b[" .. tostring(w) .. ";" .. tostring(h) .. "R")
+        end
+        if op == "memcpy" then
+            local src = tonumber(args[1]) or 0
+            local x = tonumber(args[2]) or 1
+            local y = tonumber(args[3]) or 1
+            local w = tonumber(args[4]) or self.w
+            local h = tonumber(args[5]) or self.h
+            local dst = tonumber(args[6]) or 0
+            local dx = tonumber(args[7]) or 1
+            local dy = tonumber(args[8]) or 1
+            assert(self.gpu.bitblt(dst, dx, dy, w, h, src, x, y))
+        end
+        if op == "allocateBuffer" then
+            local w = tonumber(args[1]) or self.w
+            local h = tonumber(args[2]) or self.h
+            local buf = self.gpu.allocateBuffer(w, h) or ""
+            self.responses:push("\x1b[" .. tostring(buf) .. "R")
+        end
+        if op == "freeBuffer" then
+            local b = tonumber(args[1]) or 0
+            assert(self.gpu.freeBuffer(b))
+        end
+        if op == "freeAllBuffers" then
+            assert(self.gpu.freeAllBuffers())
         end
         return
     elseif cmd:sub(1,2) == "KT" then

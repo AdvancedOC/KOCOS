@@ -60,8 +60,6 @@ function terminal.readEscape(nonblocking)
                 table.insert(escapesBuffer, escape)
             end
             if data ~= "" or nonblocking then break end -- not waiting for data
-            -- TODO: system yield
-            coroutine.yield()
         end
     end
     return table.remove(escapesBuffer, 1)
@@ -126,6 +124,13 @@ function terminal.getResponse()
     end
 end
 
+function terminal.getCursor()
+    terminal.sendCSI("n", "6")
+    local resp = terminal.getResponse()
+    local parts = string.split(resp, ';')
+    return tonumber(parts[1]), tonumber(parts[2])
+end
+
 function terminal.getResolution()
     terminal.sendCSI("n", "5")
     local resp = terminal.getResponse()
@@ -138,6 +143,28 @@ function terminal.maxResolution()
     local resp = terminal.getResponse()
     local parts = string.split(resp, ';')
     return tonumber(parts[1]), tonumber(parts[2])
+end
+
+-- Free, total
+function terminal.getMemoryInfo()
+    terminal.sendCSI("n", "8")
+    local resp = terminal.getResponse()
+    local parts = string.split(resp, ';')
+    return tonumber(parts[1]), tonumber(parts[2])
+end
+
+function terminal.freeMemory()
+    local free = terminal.getMemoryInfo()
+    return free
+end
+
+function terminal.totalMemory()
+    local _, total = terminal.getMemoryInfo()
+    return total
+end
+
+function terminal.hasVRAM()
+    return terminal.totalMemory() > 0
 end
 
 -- Sends a KG OS command, which is used to perform raw draw operations.
@@ -162,29 +189,67 @@ local function rgbSplit(c)
     return r, g, b
 end
 
----@param c string
+---@param c integer
 function terminal.setForeground(c)
     local r, g, b = rgbSplit(c)
     terminal.sendCSI("m", "38", "2", r, g, b)
 end
 
----@param c string
+---@param c integer
 function terminal.setBackground(c)
     local r, g, b = rgbSplit(c)
     terminal.sendCSI("m", "48", "2", r, g, b)
 end
 
-function terminal.set(x, y, s)
-    terminal.sendGraphicsCommand("set", tostring(x), tostring(y), s)
+function terminal.set(x, y, s, b)
+    terminal.sendGraphicsCommand("set", tostring(x), tostring(y), s, tostring(b or 0))
 end
 
-function terminal.fill(x, y, w, h, s)
-    terminal.sendGraphicsCommand("fill", tostring(x), tostring(y), tostring(w), tostring(h), s)
+function terminal.fill(x, y, w, h, s, b)
+    terminal.sendGraphicsCommand("fill", tostring(x), tostring(y), tostring(w), tostring(h), s, tostring(b or 0))
 end
 
-function terminal.copy(x, y, w, h, tx, ty)
-    terminal.sendGraphicsCommand("copy", tostring(x), tostring(y), tostring(w), tostring(h), tostring(tx), tostring(ty))
+function terminal.copy(x, y, w, h, tx, ty, b)
+    terminal.sendGraphicsCommand("copy", tostring(x), tostring(y), tostring(w), tostring(h), tostring(tx), tostring(ty), tostring(b or 0))
 end
+
+function terminal.allocateBuffer(w, h)
+    w = w or ""
+    h = h or ""
+    terminal.sendGraphicsCommand("allocateBuffer", tostring(w), tostring(h))
+    local resp = terminal.getResponse()
+    local buf = tonumber(resp)
+    if not buf then return nil, "out of memory" end
+    return buf -- allocated!
+end
+
+function terminal.freeBuffer(b)
+    terminal.sendGraphicsCommand("freeBuffer", tostring(b))
+end
+
+function terminal.freeAllBuffers(b)
+    terminal.sendGraphicsCommand("freeAllBuffers", tostring(b))
+end
+
+function terminal.getBufferSize(b)
+    b = b or 0
+    terminal.sendGraphicsCommand("getBufferSize", tostring(b))
+    local resp = terminal.getResponse()
+    local parts = string.split(resp, ';')
+    return tonumber(parts[1]), tonumber(parts[2])
+end
+
+function terminal.memcpy(buffer, x, y, w, h, dst, dx, dy)
+    dst = dst or 0
+    dx = dx or 1
+    dy = dy or 1
+    terminal.sendGraphicsCommand("memcpy",
+        tostring(buffer), tostring(x), tostring(y), tostring(w), tostring(h),
+        tostring(dst), tostring(dx), tostring(dy)
+    )
+end
+
+terminal.bitblt = terminal.memcpy
 
 function terminal.setResolution(w, h)
     terminal.sendGraphicsCommand("setResolution", tostring(w), tostring(h))

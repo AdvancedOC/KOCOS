@@ -45,6 +45,17 @@ local buildInfo = {
             kvm = "kvm.lua",
         },
     },
+    libgl = {
+        directory = "lib/libgl",
+        libs = {
+            "/lib/liblua.so",
+        },
+        modules = {
+            gl = "gl.lua",
+            ["gl.terminal"] = "gl_terminal.lua",
+            ["gl.gpu"] = "gl_gpu.lua",
+        },
+    },
 }
 
 if #libs == 0 then

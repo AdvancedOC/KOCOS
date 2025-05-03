@@ -1410,6 +1410,19 @@ function cmds.resolution(args)
     end
 end
 
+function cmds.vram()
+    write(stdout, "\x1b[8n")
+    local back = read(stdin, math.huge)
+
+    local _, _, free, total = string.find(back, "(%d+);(%d+)")
+    if tonumber(total) > 0 then
+        printf("Free VRAM: %s", free)
+        printf("Total VRAM: %s", total)
+    else
+        print("VRAM unsupported")
+    end
+end
+
 while true do
     local pi = assert(pinfo())
     local uid = pi.uid
