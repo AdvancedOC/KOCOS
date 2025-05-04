@@ -7,6 +7,10 @@ local w, h = terminal.getResolution()
 local ox, oy = 0, 0
 local cx, cy = 1, 1
 
+-- Optimization doesnt matter much for 1 TTY
+-- But when using rebinding, it will make everyone hate you less
+local dirtyStatus = true
+
 local function hideCursor()
     terminal.reset()
     terminal.set(cx, cy, "")
@@ -43,6 +47,7 @@ local function addLine(line)
             terminal.reset()
         end
     end
+    dirtyStatus = true
 end
 
 local function getMoreFileContents()
@@ -76,11 +81,14 @@ end
 showCursor()
 
 while true do
-    terminal.reset()
-    terminal.invert()
-    terminal.fill(1, h, w, 1, " ")
-    terminal.set(1, h, string.format("%d %d %s | q to quit | %d lines", cx+ox, cy+oy, path, #lines))
-    terminal.reset()
+    if dirtyStatus then
+        terminal.reset()
+        terminal.invert()
+        terminal.fill(1, h, w, 1, " ")
+        terminal.set(1, h, string.format("%d %d %s | q to quit | %d lines", cx+ox, cy+oy, path, #lines))
+        terminal.reset()
+        dirtyStatus = false
+    end
 
     getMoreFileContents()
 
@@ -102,6 +110,7 @@ while true do
                 end
             end
             showCursor()
+            dirtyStatus = true
         end
         if code == keyboard.keys.down then
             hideCursor()
@@ -114,6 +123,7 @@ while true do
                 terminal.set(1, cy, (lines[cy+oy] or ""):sub(ox+1))
             end
             showCursor()
+            dirtyStatus = true
         end
         if code == keyboard.keys.left then
             hideCursor()
@@ -132,6 +142,7 @@ while true do
                 end
             end
             showCursor()
+            dirtyStatus = true
         end
         if code == keyboard.keys.right then
             hideCursor()
@@ -146,6 +157,7 @@ while true do
                 end
             end
             showCursor()
+            dirtyStatus = true
         end
         if code == keyboard.keys.q then
             terminal.keyboardMode(false)

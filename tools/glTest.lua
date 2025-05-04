@@ -37,4 +37,6 @@ while true do
     end
 
     gl.flush(buf, device)
+
+    coroutine.yield()
 end

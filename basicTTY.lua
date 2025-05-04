@@ -3,7 +3,7 @@ local KOCOS = _K
 -- Syscall definitions (no liblua :sad:)
 
 local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit, listen, forget, mkpipe
-local clist, cproxy, cinvoke, ctype, attach
+local clist, cproxy, cinvoke, cprimary, ctype, attach
 local socket, serve, accept, connect
 
 local function ttyopen(gpu, keyboard, config)
@@ -134,6 +134,11 @@ function cproxy(addr)
     return p, err
 end
 
+function cprimary(addr)
+    local err, p = syscall("cprimary", addr)
+    return p, err
+end
+
 function cinvoke(addr, ...)
     return syscall("cinvoke", addr, ...)
 end
@@ -168,24 +173,7 @@ function accept(fd)
     return clientfd, err
 end
 
-local graphics = nil
-local keyboard = nil
-
-if _OS.component.gpu then
-    graphics = _OS.component.gpu
-    local screen = _OS.component.screen
-    graphics.bind(screen.address)
-    keyboard = screen.getKeyboards()[1]
-elseif _OS.component.kocos then
-    graphics = _OS.component.kocos
-    keyboard = "no keyboard"
-end
-
-assert(graphics, "unable to find rendering hardware")
-assert(keyboard, "unable to find input hardware")
-
-local tty = assert(ttyopen(graphics.address, keyboard))
-
+local function shell(tty)
 local stdout = tty
 local stdin = tty
 
@@ -1358,37 +1346,6 @@ function cmds.time(args)
     printf("Took %.2fs", _OS.computer.uptime() - start)
 end
 
-function cmds.rebindTest()
-    close(stdout)
-    local gpu = _OS.component.gpu.address
-
-    local screens = {}
-    for addr in _OS.component.list("screen") do
-        table.insert(screens, addr)
-    end
-
-    for _, screen in ipairs(screens) do
-        local keyboards = _OS.component.invoke(screen, "getKeyboards")
-        local keyboard = keyboards[1] or "no keyboard"
-
-        local t = ttyopen(gpu, keyboard, {boundTo = screen})
-
-        attach(function()
-            local w = math.random(1, 160)
-            local h = math.random(1, 50)
-            assert(write(t, "\x1b]KGsetResolution\t" .. tostring(w) .. "\t" .. tostring(h) .. "\a"))
-            assert(write(t, "\x1b[2J"))
-            while true do
-                assert(write(t, "Input: "))
-                local line = read(t, math.huge)
-                assert(write(t, line))
-                coroutine.yield()
-            end
-        end, "rebind-" .. screen)
-    end
-    while true do coroutine.yield() end
-end
-
 -- We don't support *changing* resolution rn so...
 function cmds.resolution(args)
     if #args == 0 then
@@ -1448,5 +1405,57 @@ while true do
 
     coroutine.yield()
 end
+end
 
+---@type {graphics: string, keyboard: string, options: table}[]
+local ttyConfig = {}
 
+local gpus = {}
+for _, c in ipairs(clist()) do
+    if ctype(c) == "gpu" then
+        table.insert(gpus, c)
+    end
+end
+
+local nextGPU = 1
+
+for _, c in ipairs(clist()) do
+    local p = cproxy(c)
+    if ctype(c) == "kocos" then
+        if p.hasStdio() then
+            table.insert(ttyConfig, {
+                graphics = c,
+                keyboard = "no keyboard",
+                options = {},
+            })
+        end
+    elseif ctype(c) == "screen" then
+        local keyboard = p.getKeyboards()[1]
+        if keyboard then
+            local gpu = gpus[nextGPU]
+            assert(gpu, "no gpu")
+            -- round robin GPU allocation
+            nextGPU = nextGPU + 1
+            if nextGPU > #gpus then nextGPU = 1 end
+            -- yoinkity sploinkity
+            table.insert(ttyConfig, {
+                graphics = gpu,
+                keyboard = keyboard,
+                options = {
+                    boundTo = c,
+                    -- turn off if you feel like not doing so much rebinding
+                    blinking = true,
+                },
+            })
+        end
+    end
+end
+
+assert(#ttyConfig > 0, "No TTYs could be created")
+
+for i, conf in ipairs(ttyConfig) do
+    local tty = assert(ttyopen(conf.graphics, conf.keyboard, conf.options))
+    attach(function()
+        shell(tty)
+    end, "tty #" .. i)
+end

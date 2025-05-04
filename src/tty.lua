@@ -26,6 +26,7 @@
 ---@field boundTo? string
 ---@field completed? string
 ---@field activeBuffer integer
+---@field blinking boolean
 local tty = {}
 tty.__index = tty
 
@@ -113,7 +114,7 @@ function tty.create(gpu, keyboard, config)
         keyboard = keyboard,
         mtx = KOCOS.lock.create(),
         isCursorShown = false,
-        cursorToggleTime = 0,
+        cursorToggleTime = math.random(0, 2),
         fg = stdClrs[37],
         bg = stdClrs[30],
         ansiPalette = table.copy(stdClrs),
@@ -128,6 +129,7 @@ function tty.create(gpu, keyboard, config)
         boundTo = config.boundTo,
         completed = nil,
         activeBuffer = 0,
+        blinking = KOCOS.default(config.blinking, true),
     }, tty)
     t:reset()
     return t
@@ -168,7 +170,7 @@ end
 
 function tty:hideCursor()
     if self.isCursorShown then
-        self:sync()
+        self:switchBuffer(0)
         local c = self.gpu.get(self.x, self.y)
         self.gpu.setForeground(self.fg)
         self.gpu.setBackground(self.bg)
@@ -180,7 +182,7 @@ end
 
 function tty:showCursor()
     if not self.isCursorShown then
-        self:sync()
+        self:switchBuffer(0)
         local c = self.gpu.get(self.x, self.y)
         self.gpu.setForeground(self.bg)
         self.gpu.setBackground(self.fg)
@@ -769,8 +771,11 @@ function tty:read(action)
     end
     local ex, ey = self.x, self.y
     local i = cursor or #inputBuffer
+    if not self.blinking then
+        self:showCursor()
+    end
     while true do
-        if self.cursorToggleTime <= computer.uptime() and not self.conceal then
+        if self.cursorToggleTime <= computer.uptime() and not self.conceal and self.blinking then
             self:toggleCursor()
         end
         local event, _, char, code = self:popKeyboardEvent()

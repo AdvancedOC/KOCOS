@@ -71,6 +71,7 @@ function kvm.init(vm)
     env.computer = computer
 
     env.unicode = table.copy(unicode)
+    env.utf8 = table.copy(utf8)
 
     vm.instance = coroutine.create(function()
         vm.signals.clear()
