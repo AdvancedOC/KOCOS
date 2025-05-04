@@ -21,6 +21,6 @@ return {
     set = function(x, y, c, f, b)
         gpu.setForeground(f)
         gpu.setBackground(b)
-        gpu.set(x, y, c)
+        gpu.set(x+1, y+1, c)
     end,
 }

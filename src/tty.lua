@@ -25,6 +25,7 @@
 ---@field readImmediate boolean
 ---@field boundTo? string
 ---@field completed? string
+---@field activeBuffer integer
 local tty = {}
 tty.__index = tty
 
@@ -126,6 +127,7 @@ function tty.create(gpu, keyboard, config)
         readImmediate = false,
         boundTo = config.boundTo,
         completed = nil,
+        activeBuffer = 0,
     }, tty)
     t:reset()
     return t
@@ -138,8 +140,10 @@ function tty:setCursor(x, y)
 end
 
 function tty:flush()
-    self:sync()
     local l = lib.len(self.buffer)
+    if l == 0 then return end
+    self:sync()
+    self:switchBuffer(0)
     self.gpu.set(self.x-l, self.y, self.buffer)
     self.buffer = ""
 end
@@ -365,7 +369,7 @@ function tty:processEscape(c)
             if params ~= "" then
                 y = tonumber(params) or 1
             end
-            self:sync()
+            self:switchBuffer(0)
             self.gpu.fill(1, y, self.w, 1, " ")
         end
 
@@ -389,13 +393,13 @@ function tty:processEscape(c)
                 self.responses:push("\x1b[" .. tostring(self.w) .. ";" .. tostring(self.h) .. "R")
             end
             if params == "7" then
-                self:sync()
+                self:switchBuffer(0)
                 local w, h = self.gpu.maxResolution()
                 self.responses:push("\x1b[" .. tostring(w) .. ";" .. tostring(h) .. "R")
             end
             if params == "8" then
                 -- VRAM stats
-                self:sync()
+                self:switchBuffer(0)
                 local free = self.gpu.freeMemory()
                 local total = self.gpu.totalMemory()
                 self.responses:push("\x1b[" .. tostring(math.floor(free or 0)) .. ";" .. tostring(math.floor(total or 0)) .. "R")
@@ -421,22 +425,46 @@ function tty:processEscape(c)
                 computer.beep()
             end
             self.escape = nil
-            self:ensureValidState()
         end
     end
 end
 
-function tty:ensureValidState()
+---@param buffer integer
+function tty:switchBuffer(buffer)
+    self:sync()
     if self.gpu.type == "gpu" then
-        self.gpu.setActiveBuffer(0) -- SHIT MUST GO TO SCREEN BY DEFAULT
+        self.activeBuffer = self.gpu.getActiveBuffer() or self.activeBuffer
+        if self.activeBuffer ~= buffer then
+            self.gpu.setActiveBuffer(buffer)
+            self.gpu.setForeground(self.fg)
+            self.gpu.setBackground(self.bg)
+            self.activeBuffer = buffer
+        end
     end
+end
+
+---@param s string
+---@return string[]
+local function ktArgSplit(s)
+    local args = {}
+    local buf = ""
+    for i=1,#s do
+        local c = s:sub(i, i)
+        if c == "\t" then
+            table.insert(args, buf)
+            buf = ""
+        else
+            buf = buf .. c
+        end
+    end
+    return args
 end
 
 function tty:runCommand(cmd)
     if cmd:sub(1,2) == "KG" then
         -- KOCOS Graphics command
         self:sync()
-        local args = string.split(cmd:sub(3), "\t")
+        local args = ktArgSplit(cmd:sub(3))
         local op = table.remove(args, 1)
         -- unrecognized is just a no-op
         if op == "set" then
@@ -446,11 +474,7 @@ function tty:runCommand(cmd)
             local b = tonumber(args[4]) or 0
             -- you can't get a character, but you can change color
             if #s == 0 then s = self.gpu.get(x, y) or " " end
-            if b ~= 0 then
-                self.gpu.setActiveBuffer(b)
-                self.gpu.setForeground(self.fg)
-                self.gpu.setBackground(self.bg)
-            end
+            self:switchBuffer(b)
             assert(self.gpu.set(x, y, s))
         end
         if op == "fill" then
@@ -461,11 +485,7 @@ function tty:runCommand(cmd)
             local s = args[5]
             local b = tonumber(args[6]) or 0
             if not s or #s == 0 then s = " " end
-            if b ~= 0 then
-                self.gpu.setActiveBuffer(b)
-                self.gpu.setForeground(self.fg)
-                self.gpu.setBackground(self.bg)
-            end
+            self:switchBuffer(b)
             assert(self.gpu.fill(x, y, w, h, s))
         end
         if op == "copy" then
@@ -476,11 +496,7 @@ function tty:runCommand(cmd)
             local tx = tonumber(args[5]) or 0
             local ty = tonumber(args[6]) or 0
             local b = tonumber(args[7]) or 0
-            if b ~= 0 then
-                self.gpu.setActiveBuffer(b)
-                self.gpu.setForeground(self.fg)
-                self.gpu.setBackground(self.bg)
-            end
+            self:switchBuffer(b)
             assert(self.gpu.copy(x, y, w, h, tx, ty))
         end
         if op == "setResolution" then
@@ -520,6 +536,7 @@ function tty:runCommand(cmd)
         end
         if op == "freeAllBuffers" then
             assert(self.gpu.freeAllBuffers())
+            self:switchBuffer(0)
         end
         return
     elseif cmd:sub(1,2) == "KT" then
@@ -615,7 +632,7 @@ function tty:putc(c)
     if self.y > self.h then
         self:flush()
         self.y = self.h
-        self:sync()
+        self:switchBuffer(0)
         self.gpu.copy(1, 1, self.w, self.h, 0, -1)
         self.gpu.fill(1, self.h, self.w, 1, " ")
     end
@@ -632,7 +649,6 @@ function tty:write(buffer)
         return
     end
     self:lock()
-    self:sync()
     local l = lib.len(buffer)
     for i=1,l do
         local c = lib.sub(buffer, i, i)
@@ -763,7 +779,7 @@ function tty:read(action)
         if event == "key_up" then self.keysDown[code] = nil end
 
         if event == "clipboard" then
-            self:sync()
+            self:switchBuffer(0)
             local data = char:gsub('\n', ' ') -- TODO: make newlines somewhat supported
             if not self.conceal then
                 self:hideCursor()
@@ -778,7 +794,7 @@ function tty:read(action)
         end
 
         if event == "key_down" then
-            self:sync()
+            self:switchBuffer(0)
             if code == KOCOS.keyboard.keys.enter then
                 if not self.conceal then
                     self:hideCursor()

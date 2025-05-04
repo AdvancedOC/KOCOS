@@ -58,30 +58,19 @@ list (the `nextFreeSector` field).
 
 ### Block ID to Sector
 
-LightFS, to minimize time spent seeking, it uses **platter-aware block ID to sector mappings**, which means the next block ID is more likely than not in the
-same position on the next platter, which means there is no need to seek. (which can be very slow)
-
-The algorithm for mapping Block IDs to sectors, given a `physicalPlatterCount` and `totalSectors`, is:
+The algorithms for mapping Block IDs to sectors is:
 ```lua
 -- For mappingAlgorithm = INITIAL
-local function initial(blockID, physicalPlatterCount, totalSectors)
-    local sectorsPerPlatter = math.floor(totalSectors / physicalPlatterCount)
-    local logicalPlatterCount = math.floor(totalSectors / sectorsPerPlatter)
-
-    local blocksPerPlatter = math.max(1, math.floor(totalSectors / logicalPlatterCount))
-
-    local x = math.floor(blockID / blocksPerPlatter)
-    local y = blockID % blocksPerPlatter
-
-    return x + y * blocksPerPlatter
+local function initial(blockID)
+    return blockID
 end
+-- More to come
 ```
-`physicalPlatterCount` is the platter count of the **drive**, whilst `totalSectors` is the amount of sectors in the **partition.**
 
-Due to how `logicalPlatterCount` is computed, it is **highly recommended** to make the partition **platter-aligned.**
-
-This algorithm does mean that LightFS partitions are **non-resizable without re-formatting**, because the variables in this equation would change.
-
+`initial` is the most straight-forward algorithm. A dumb linear map.
+It comes with the advantage of making the filesystem *trivially resizable*, as the size of the partition changing does not affect the mapping.
+However, seek times are not optimized by this algorithm. It may not put blocks next to eachother at the same angle, meaning there may be a seek
+penalty on top of the rest of the calls.
 
 # Release v0.0.1
 

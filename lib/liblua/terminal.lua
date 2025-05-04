@@ -171,7 +171,12 @@ end
 -- More accurately, this powers set, fill and copy.
 -- setForeground and setBackground use CSI 38 and 48 m.
 function terminal.sendGraphicsCommand(cmd, ...)
-    local args = table.concat({cmd, ...}, "\t")
+    local args = cmd .. "\t"
+    local n = select("#", ...)
+    for i=1, n do
+        local arg = select(i, ...)
+        args = args .. arg .. "\t"
+    end
     terminal.sendOSC("KG" .. args)
 end
 
