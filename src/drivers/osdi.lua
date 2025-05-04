@@ -67,7 +67,7 @@ function KOCOS.osdi(drive)
         end
     until #sector <= 32
 
-    return parts
+    return parts, "osdi"
 end
 
 KOCOS.fs.addPartitionParser(KOCOS.osdi)

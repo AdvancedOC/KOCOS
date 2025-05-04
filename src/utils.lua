@@ -129,7 +129,7 @@ end
 -- If bin is less than 16 bytes, it is padded with 0s
 ---@param bin string
 function BinToUUID_direct(bin)
-    local digits4 = "0123456789ABCDEF"
+    local digits4 = "0123456789abcdef"
 
     local base16d = ""
     for i=1,16 do

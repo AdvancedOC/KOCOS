@@ -83,7 +83,7 @@ function KOCOS.mtpt(drive)
         end
     end
 
-    return partitions
+    return partitions, "mtpt"
 end
 
 KOCOS.fs.addPartitionParser(KOCOS.mtpt)

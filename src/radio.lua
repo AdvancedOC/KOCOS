@@ -48,14 +48,16 @@ function radio.send(addr, port, data)
         return t.send(addr, data, port)
     end
     local m = radio.primaryModem()
-    if not m then return false, "offline" end
-    local modem = component.proxy(m)
     if addr == radio.ADDR_BROADCAST then
         for tunnel in component.list("tunnel") do
             local t = component.proxy(tunnel)
             t.send(data, port)
         end
-        radio.signal(m, port, data, 0)
+        radio.signal(m or radio.ADDR_LOOP, port, data, 0)
+    end
+    if not m then return false, "offline" end
+    local modem = component.proxy(m)
+    if addr == radio.ADDR_BROADCAST then
         return modem.broadcast(port, data)
     end
     return modem.send(addr, port, data)

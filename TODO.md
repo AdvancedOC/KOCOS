@@ -1,47 +1,6 @@
 # More unmanaged filesystem formats
 > Because you can never have enough
 
-## OSDI (Open Simple Disk Info)
-> https://github.com/oc-ulos/oc-cynosure-2/blob/dev/src/fs/partition/osdi.lua
-
-## KPR (Kocos Partition Record)
-
-A simple partition table, starting at the last sector. (for compatibility with BBR while minimizing wasted space.)
-Its structs would be:
-```c
-// Big endian encoding
-// Sectors start at 0 to use the 0-value of the numbers
-// Sector size long.
-struct header {
-    char header[8]; // header string. 1 char = 1 byte, just like in Lua.
-    uint8_t partitionCount;
-    uint24_t partitionArray; // last sector for no partition array, stores where extra partitions are if the amount of partitions didn't fit here.
-                            // Its capacity shall be assumed to be the largest amount of free space starting there.
-                            // IT IS NOT ALLOWED TO POINT INSIDE OF A PARTITION. If it does, the behavior is implementation-defined.
-    uint8_t reserved[116]; // first 128 bytes are for data. The padding is reserved and should be filled with 0s.
-    struct partition array[]; // primary partition array, stored inside this sector to minimize waste.
-};
-
-enum flags {
-    READONLY = 1, // this partition should not have its contents modified
-    HIDDEN = 2, // this partition may be unimportant to the user, or for internal use only, and thus should be hidden.
-    PINNED = 4, // this partition should not be relocated, as something needs it to be there. Typically used for "RESERVED"-type partitions.
-};
-
-// 64 bytes long.
-struct partition {
-    char name[32]; // padded with 0s, 0-terminated.
-    uint24_t start; // first sector
-    uint24_t len; // length of partition, in sectors.
-    uint16_t flags; // see flags. All bits not specified in flags should be set to 0.
-    char type[8]; // 8-byte type. Can be treated as a uint64_t or just a string. "BOOT-LDR" is reserved for the bootloader, "@GENERIC" is reserved for
-                // generic user partitions, and "RESERVED" is reserved for partitions storing copies of files (sometimes used for boot records).
-                // OSs should use them to annotate special functions, NOT FILESYSTEM TYPE.
-    uint8_t uuid[16]; // Bytes are in the order seen in the stringified version.
-};
-```
-The label of the drive is the result of `getLabel`, and thus is not stored in the partition table (unlike MTPT and OSDI, though KOCOS ignores that.)
-
 ## LightFS (Lightweight File System)
 
 A conventional filesystem (no `i` mode or `erase` syscall support like OKFFS), designed to be fast and simple.
@@ -123,10 +82,6 @@ Due to how `logicalPlatterCount` is computed, it is **highly recommended** to ma
 
 This algorithm does mean that LightFS partitions are **non-resizable without re-formatting**, because the variables in this equation would change.
 
-## FAT16 driver
-
-Basic FAT16.
-No `i` mode or `erase`.
 
 # Release v0.0.1
 
@@ -248,3 +203,8 @@ Notes that should be supported:
 - snare
 - xylophone
 
+# FAT16 driver
+> This may never be added
+
+Basic FAT16.
+No `i` mode or `erase`.

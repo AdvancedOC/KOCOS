@@ -4,7 +4,6 @@ local keyboard = require("keyboard")
 local sys = require("syscalls")
 local keys = keyboard.keys
 
-local KOCOS = _K
 io.write("Name: ")
 local name = io.read("l") or "Random"
 io.write("Port: ")

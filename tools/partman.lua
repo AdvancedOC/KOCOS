@@ -50,9 +50,9 @@ end
 local formatters = {}
 
 function formatters.mtpt(parts)
-    local maxSectorCount = math.floor(sectorSize / 32) - 1 -- 1 is taken for header
+    local maxPartCount = math.floor(sectorSize / 32) - 1 -- 1 is taken for header
 
-    assert(#parts <= maxSectorCount, "too many partitions")
+    assert(#parts <= maxPartCount, "too many partitions")
 
     local eformat = "c20c4>I4>I4"
     local rootSector = string.pack(eformat, "", "mtpt", 0, 0) -- header
@@ -82,8 +82,8 @@ function formatters.mtpt(parts)
 end
 
 function formatters.osdi(parts)
-    local maxSectorCount = math.floor(sectorSize / 32) - 1 -- 1 is taken for header
-    assert(#parts <= maxSectorCount, "too many partitions")
+    local maxPartCount = math.floor(sectorSize / 32) - 1 -- 1 is taken for header
+    assert(#parts <= maxPartCount, "too many partitions")
 
     local magic = "OSDI\xAA\xAA\x55\x55"
     local pack_format = "<I4I4c8I3c13"
@@ -113,6 +113,45 @@ function formatters.osdi(parts)
     partTable = string.rightpad(partTable, sectorSize)
 
     drive.writeSector(1, partTable)
+end
+
+function formatters.kpr(parts)
+    local maxPartCount = math.floor((sectorSize - 128) / 64) -- 1 is taken for header
+    assert(#parts <= maxPartCount, "KPR extra partition array is not supported yet")
+
+    local lastSector = math.floor(capacity / sectorSize)
+
+    local partTable = "KPRv1.0\0"
+    partTable = string.rightpad(partTable .. string.pack("B>I3", #parts, lastSector), 128)
+
+    local partitionFormat = "c32>I3>I3>I2c8c16"
+
+    for i, part in ipairs(parts) do
+        local name = string.rightpad(part.name, 32)
+        local start = part.start / sectorSize
+        assert(math.floor(start) == start, "partition " .. i .. " is not sector aligned")
+        local len = part.size / sectorSize
+        assert(math.floor(len) == len, "partition " .. i .. " is not sector aligned")
+        local partType = "@GENERIC"
+        local flags = 0
+        if part.kind == "root" then
+            partType = "KCOSROOT"
+        elseif part.kind == "reserved" then
+            flags = flags + 4 -- we OR 4, to mark it as pinned!
+            partType = "RESERVED"
+        elseif part.kind == "boot" then
+            partType = "BOOT-LDR"
+        end
+        local uuid = ""
+        for _=1,16 do
+            uuid = uuid .. string.char(math.random(0, 255))
+        end
+        partTable = partTable .. string.pack(partitionFormat, name, start, len, flags, partType, uuid)
+    end
+
+    partTable = string.rightpad(partTable, sectorSize)
+
+    drive.writeSector(lastSector, partTable)
 end
 
 while true do
