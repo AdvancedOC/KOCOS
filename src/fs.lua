@@ -683,6 +683,7 @@ function KOCOS.readFile(path)
     return data
 end
 
+---@type {[string]: {data: string, mtime: integer}}
 local readCache = {}
 
 ---@param path string
@@ -690,15 +691,19 @@ local readCache = {}
 -- Intended to be used for dynamically linked libraries
 ---@return string
 function KOCOS.readFileCached(path)
+    local mtime = KOCOS.fs.modifiedTime(path)
     if readCache[path] then
-        local s = fs.size(path)
-        if s ~= #readCache[path] then
-            readCache[path] = KOCOS.readFile(path)
+        if readCache[path].mtime ~= mtime then
+            readCache[path].data = KOCOS.readFile(path)
+            readCache[path].mtime = mtime
         end
     else
-        readCache[path] = KOCOS.readFile(path)
+        readCache[path] = {
+            data = KOCOS.readFile(path),
+            mtime = mtime,
+        }
     end
-    return readCache[path]
+    return readCache[path].data
 end
 
 KOCOS.log("Loaded filesystem")

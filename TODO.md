@@ -85,7 +85,6 @@ We kinda should have symlinks
 Refactor the kernel's code a bit to reduce code size post-minification.
 The goal is to get the release builds to be smaller, both compressed and decompressed.
 
-
 # Support pasting in TTY keyboard mode
 
 Minor thing but like kinda cool
@@ -98,18 +97,6 @@ Lets fix that with a controlled shock.
 # OKFFS test suite improvements
 
 Testing `w` and `a` modes.
-Testing `erase` once implemented.
-
-# OKFFS mode changes
-
-Add a `erase` syscall to erase bytes starting at the file position.
-ManagedFS won't support `erase`.
-
-# OKFFS optimizations
-
-Smarter block allocator that is aware of platters.
-Grouping writes to work smarter.
-Reducing seek times.
 
 # KVM - KOCOS Virtual Machines
 
@@ -125,42 +112,22 @@ They default to 0/0/0.
 
 They send `modem_message` signals.
 
-## KVM command for basic VMs
-
-```sh
-# Example usage of a graphical OS
-# --bios sets the bios
-# --filesystem mounts a new folder as a filesystem. --filesystem-readonly would be used for read only filesystems.
-# --vgpu mounts a new virtual GPU.
-# --tuiscreen mounts a new TUI screen. This also clears the terminal.
-# --allowMount=always will always allow mounts without user confirmation.
-# --epass will pass events through.
-~ > kvm --bios myBIOS.lua --filesystem openos_dir --vgpu --tuiscreen --allowMount=always --epass key_down --epass key_up
-# OpenOS boots and takes over.
-```
-
-```sh
-# Example usage of a theoretical patched OpenOS which supports interfacing with the KOCOS component.
-~ > kvm --bios myBIOS.lua --filesystem openos_patched --kocos
-# OpenOS bootup...
-# > echo hi
-hi
-# > # continue to do stuff
-# > exit
-~ > # back to host
-```
-## libkvm and kvm
-
-`/lib/libkvm.so` will provide a convenient wrapper for the KVM system.
-`tools/kvm.lua` will be a simple script that uses `/lib/libkvm.so`.
-
 # Ridiculous memory shrinking
 
 A lot of RAM optimizations to be made, such as:
-- _SHARED and shared storage between processes (liblua can use that to recycle stuff)
 - Shared `syscall`. Instead, `KOCOS.process.current()` is designed to find the current `pid`.
 - Threads stored in a linked list, with new ones inserted at the start.
 - Lazily created interrupt queue. Created when listeners get made.
+- Dynamic linking is moved into the kernel
+
+## package is gone and require is now built-in.
+
+`require` will be implemented in the kernel.
+Processes will store their dependencies so the kernel can know to check modules from there first.
+
+`_start` is first copied from dependencies if not specified by the process.
+
+Perhaps `package` can somehow be brought back afterwards.
 
 ## How to find the current process
 
