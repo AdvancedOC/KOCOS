@@ -474,10 +474,23 @@ function tty:runCommand(cmd)
             local y = tonumber(args[2]) or 1
             local s = args[3] or ""
             local b = tonumber(args[4]) or 0
-            -- you can't get a character, but you can change color
+            -- nice feature to overwrite just colors
             if #s == 0 then s = self.gpu.get(x, y) or " " end
             self:switchBuffer(b)
             assert(self.gpu.set(x, y, s))
+        end
+        if op == "get" then
+            local x = tonumber(args[1]) or 1
+            local y = tonumber(args[2]) or 1
+            local b = tonumber(args[3]) or 0
+            self:switchBuffer(b)
+            local c, f, b = self.gpu.get(x, y)
+            c = c or "\0"
+            f = f or 0xFFFFFF
+            b = b or 0
+
+            local u = utf8.codepoint(c)
+            self.responses:push("\x1b[" .. tostring(u) .. ";" .. tostring(f) .. ";" .. tostring(b) .. "R")
         end
         if op == "fill" then
             local x = tonumber(args[1]) or 1
@@ -504,7 +517,7 @@ function tty:runCommand(cmd)
         if op == "setResolution" then
             local w = tonumber(args[1]) or self.w
             local h = tonumber(args[2]) or self.h
-            assert(self.gpu.setResolution(w, h))
+            self.gpu.setResolution(w, h)
             self.w = w
             self.h = h
         end
@@ -713,10 +726,6 @@ function tty:read(action)
 
         if event ~= "key_down" then return "" end
 
-        if code == KOCOS.keyboard.keys.c and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
-            error("interrupted")
-        end
-
         -- KOCOS custom escape sequences cuz yeah
         local keys = KOCOS.keyboard.keys
         local mods = 0
@@ -810,18 +819,6 @@ function tty:read(action)
                 end
                 inputBuffer = inputBuffer .. "\n"
                 break
-            elseif code == KOCOS.keyboard.keys.c and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
-                if not self.conceal then
-                    self:hideCursor()
-                    self.x = ex
-                    self.y = ey
-                    self:putc('^')
-                    self:putc('C')
-                    self:putc('\n')
-                    self:flush()
-                end
-                self:unlock()
-                error("interrupted")
             elseif code == KOCOS.keyboard.keys.d and self.keysDown[KOCOS.keyboard.keys.lcontrol] then
                 if not self.conceal then
                     self:hideCursor()
@@ -947,5 +944,24 @@ function tty:read(action)
 end
 
 KOCOS.tty = tty
+
+if KOCOS.loggingTTY then
+    local loggingTTY
+    local kocos = component.list("kocos")()
+    if kocos then
+        loggingTTY = tty.create(component.proxy(kocos), "no keyboard")
+    else
+        local gpu = component.list("gpu")()
+        local screen = component.list("screen")()
+        component.invoke(gpu, "bind", screen)
+        local keyboards = component.invoke(screen, "getKeyboards")
+        loggingTTY = KOCOS.tty.create(component.proxy(gpu), keyboards[1] or "no keyboard", {
+            boundTo = screen,
+        })
+        loggingTTY:clear()
+    end
+    assert(loggingTTY, "unable to create logging TTY")
+    KOCOS.setLoggingTTY(loggingTTY)
+end
 
 KOCOS.log("TTY subsystem loaded")

@@ -47,8 +47,9 @@ function KOCOS.logAll(...)
 end
 
 local function oceLog(s)
-    if component.ocelot then
-        component.ocelot.log(s)
+    local ocelot = component.list("ocelot")()
+    if ocelot then
+        component.invoke(ocelot, "log", s)
     end
 end
 
@@ -59,7 +60,23 @@ do
     end
 end
 
+---@type KOCOS.TTY?
 local tty
+
+function KOCOS.setLoggingTTY(loggingTTY)
+    tty = loggingTTY
+end
+
+function KOCOS.getLoggingTTY()
+    return tty
+end
+
+function KOCOS.removeLoggingTTY(clear)
+    if not tty then return end
+    if clear then tty:clear() end
+    clear = false
+    tty = nil
+end
 
 function KOCOS.log(fmt, ...)
     local time = computer.uptime()
@@ -232,25 +249,8 @@ if 1<0 then
     function syscall(sys, ...) end
 end
 
-if KOCOS.loggingTTY then
-    KOCOS.defer(function()
-        if component.kocos and component.kocos.hasStdio() then
-            tty = KOCOS.tty.create(component.kocos, "no keyboard")
-        else
-            component.gpu.bind(component.screen.address)
-            tty = KOCOS.tty.create(component.gpu, "no keyboard")
-            tty:clear()
-        end
-    end, math.huge)
-end
-
 if KOCOS.init then
     KOCOS.defer(function()
-        if tty then
-            KOCOS.log("Clearing log TTY")
-            tty:clear()
-            tty = nil
-        end
         KOCOS.log("Running " .. KOCOS.init)
         assert(KOCOS.process.spawn(KOCOS.init, {
             traced = true,

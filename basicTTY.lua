@@ -1,5 +1,8 @@
 local KOCOS = _K
 
+-- clear and remove logging TTY.
+KOCOS.removeLoggingTTY(true)
+
 -- Syscall definitions (no liblua :sad:)
 
 local pnext, pinfo, open, mopen, close, write, read, queued, clear, pop, ftype, list, stat, cstat, touch, mkdir, remove, exit, listen, forget, mkpipe

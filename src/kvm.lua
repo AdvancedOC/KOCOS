@@ -406,6 +406,7 @@ function kvm.addVGPU(vm, slot)
                 local c = assert(vm.components[address], "no such component")
                 local vgpu = assert(c.internal.vgpu, "incompatible")
                 if reset then vgpu.reset() end
+                screen = address
                 return true
             end,
             getScreen = function()
@@ -503,6 +504,49 @@ function kvm.addVGPU(vm, slot)
                 checkArg(4, h, "number")
                 checkArg(5, c, "string")
                 return getScreenFuncs().fill(x, y, w, h, c)
+            end,
+            getActiveBuffer = function()
+                return getScreenFuncs().getActiveBuffer()
+            end,
+            setActiveBuffer = function(buffer)
+                checkArg(1, buffer, "number")
+                return getScreenFuncs().setActiveBuffer(buffer)
+            end,
+            buffers = function()
+                return getScreenFuncs().buffers()
+            end,
+            allocateBuffer = function(w, h)
+                checkArg(1, w, "number", "nil")
+                checkArg(2, h, "number", "nil")
+                return getScreenFuncs().allocateBuffer(w, h)
+            end,
+            freeBuffer = function(b)
+                checkArg(1, b, "number", "nil")
+                return getScreenFuncs().freeBuffer(b)
+            end,
+            freeAllBuffers = function()
+                return getScreenFuncs().freeAllBuffers()
+            end,
+            totalMemory = function()
+                return getScreenFuncs().totalMemory()
+            end,
+            freeMemory = function()
+                return getScreenFuncs().freeMemory()
+            end,
+            getBufferSize = function(b)
+                checkArg(1, b, "number", "nil")
+                return getScreenFuncs().getBufferSize(b)
+            end,
+            bitblt = function(dst, x, y, w, h, src, fx, fy)
+                checkArg(1, dst, "number", "nil")
+                checkArg(2, x, "number", "nil")
+                checkArg(3, y, "number", "nil")
+                checkArg(4, w, "number", "nil")
+                checkArg(5, h, "number", "nil")
+                checkArg(6, src, "number", "nil")
+                checkArg(7, fx, "number", "nil")
+                checkArg(8, fy, "number", "nil")
+                return getScreenFuncs().bitblt(dst, x, y, w, h, src, fx, fy)
             end,
         },
         internal = {},

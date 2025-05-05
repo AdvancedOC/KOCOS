@@ -1,6 +1,9 @@
 print("Opening VM...")
 ---@module 'lib.libkvm.kvm'
 local kvm = require("kvm")
+local terminal = require("terminal")
+local keyboard = require("keyboard")
+local sys = require("syscalls")
 ---@type libkvm
 local vm = assert(kvm.open("KVM Test"))
 
@@ -12,7 +15,11 @@ end
 print("Select environment type")
 print("1. GPU hardware")
 print("2. KOCOS TTY sharing")
+print("3. KVM TUI screens")
 local opt = io.read("l")
+
+---@type string?
+local termKeyboard
 
 if opt == "1" then
     print("Passing through GPU...")
@@ -84,6 +91,48 @@ f()
             return l:lower():sub(1, 1) == "y"
         end,
     }
+elseif opt == "3" then
+    print("Adding custom BIOS")
+local kocosBios = [[
+local function loadOS(addr)
+    local p = component.proxy(addr)
+    if p.type == "filesystem" then
+        if not p.exists("/init.lua") then return end
+        local f = p.open("/init.lua", "r")
+        local data = ""
+        while true do
+            local chunk = p.read(f, math.huge)
+            if not chunk then break end
+            data = data .. chunk
+        end
+        p.close(f)
+        return load(data, "=/init.lua")
+    end
+end
+
+local f
+
+for addr in component.list() do
+    f = loadOS(addr)
+    if f then
+        computer.getBootAddress = function()
+            return addr
+        end
+        computer.setBootAddress = function() end
+        break
+    end
+end
+
+f()
+]]
+    vm:addBIOS(kocosBios, "", "KOCOS BIOS")
+
+    print("Adding VGPU component...")
+    vm:addVGPU()
+
+    print("Adding TUI screen and keyboard...")
+    local screen, keyboard = vm:addTUI()
+    termKeyboard = keyboard
 else
     error("bad option bruh")
 end
@@ -145,13 +194,43 @@ while true do
             io.flush()
         end
         print("Machine halted.")
+        terminal.keyboardMode(false)
         os.exit(0)
     end
     local ok, err = vm:resume()
     if not ok then
         local trace = vm:traceback(err)
         print(trace)
+        terminal.keyboardMode(false)
         os.exit(1)
     end
+
+    if termKeyboard then
+        terminal.keyboardMode(true)
+        local event, _, char, code, mods = terminal.queryEvent(true)
+        if event == "key_down" then
+            if terminal.isShiftDown(mods) then
+                sys.push(vm.vm, "key_down", termKeyboard, 0, keyboard.keys.lshift, "user")
+            end
+            if terminal.isAltDown(mods) then
+                sys.push(vm.vm, "key_down", termKeyboard, 0, keyboard.keys.lmenu, "user")
+            end
+            if terminal.isControlDown(mods) then
+                sys.push(vm.vm, "key_down", termKeyboard, 0, keyboard.keys.lcontrol, "user")
+            end
+            sys.push(vm.vm, "key_down", termKeyboard, char, code, "user")
+            sys.push(vm.vm, "key_up", termKeyboard, char, code, "user")
+            if terminal.isShiftDown(mods) then
+                sys.push(vm.vm, "key_up", termKeyboard, 0, keyboard.keys.lshift, "user")
+            end
+            if terminal.isAltDown(mods) then
+                sys.push(vm.vm, "key_up", termKeyboard, 0, keyboard.keys.lmenu, "user")
+            end
+            if terminal.isControlDown(mods) then
+                sys.push(vm.vm, "key_up", termKeyboard, 0, keyboard.keys.lcontrol, "user")
+            end
+        end
+    end
+
     coroutine.yield()
 end

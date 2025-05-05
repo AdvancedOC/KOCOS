@@ -232,8 +232,8 @@ function terminal.freeBuffer(b)
     terminal.sendGraphicsCommand("freeBuffer", tostring(b))
 end
 
-function terminal.freeAllBuffers(b)
-    terminal.sendGraphicsCommand("freeAllBuffers", tostring(b))
+function terminal.freeAllBuffers()
+    terminal.sendGraphicsCommand("freeAllBuffers")
 end
 
 function terminal.getBufferSize(b)
@@ -242,6 +242,14 @@ function terminal.getBufferSize(b)
     local resp = terminal.getResponse()
     local parts = string.split(resp, ';')
     return tonumber(parts[1]), tonumber(parts[2])
+end
+
+function terminal.get(x, y, b)
+    b = b or 0
+    terminal.sendGraphicsCommand("get", tostring(x), tostring(y), tostring(b))
+    local resp = terminal.getResponse()
+    local parts = string.split(resp, ';')
+    return unicode.char(tonumber(parts[1])), tonumber(parts[2]), tonumber(parts[3])
 end
 
 function terminal.memcpy(buffer, x, y, w, h, dst, dx, dy)

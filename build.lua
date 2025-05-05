@@ -3,6 +3,8 @@ local sources = {
     "src/prelude.lua",
     -- All the other shit
     "src/utils.lua",
+    "src/lock.lua",
+    "src/tty.lua",
     "src/event.lua",
     "src/testing.lua",
     "src/bit32.lua",
@@ -12,7 +14,6 @@ local sources = {
     "src/objects.lua",
     "src/network.lua",
     "src/syscalls.lua",
-    "src/tty.lua",
     "src/keyboard.lua",
     "src/auth.lua",
     "src/radio.lua",
