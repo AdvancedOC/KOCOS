@@ -1,3 +1,13 @@
+# Better sockets
+
+Sockets should be implemented such that `read`s return entire *packets.*
+This is so protocols are easier to implement, as the beginning and end of each packet need not be handled by the protocol.
+It also makes them consistent with domain sockets.
+
+Currently this change only needs to be applied to radio sockets, but should be convention for all future socket implementations.
+
+The only exception is internet sockets because the card itself handles reads so we can't make it do that.
+
 # More unmanaged filesystem formats
 > Because you can never have enough
 
@@ -17,6 +27,7 @@ struct superblock {
     uint24_t rootSector;
     uint24_t firstFreeSector; // first sector in free list.
     uint8_t mappingAlgorithm; // mapping algorithm used on the device
+    uint24_t activeBlockCount;
 };
 
 enum mappingAlgorithm {
@@ -46,7 +57,8 @@ struct dirEntry {
     uint8_t ftype;
     uint24_t firstBlockListSector;
     uint32_t fileSize;
-    uint8_t reserved[14];
+    uint24_t blockCount; // to optimize activeBlockCount a lot
+    uint8_t reserved[11];
 };
 ```
 
@@ -56,7 +68,7 @@ The free list stores the first blocks in the block lists that are freed. When a 
 the next block in the original block list that was freed (the `nextBlockSector` field), unless it is 0, in which case it is set to the next freed block
 list (the `nextFreeSector` field).
 
-### Block ID to Sector
+### Block ID to Start Sector
 
 The algorithms for mapping Block IDs to sectors is:
 ```lua

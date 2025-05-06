@@ -126,8 +126,17 @@ end
 
 local looped = {}
 
-function KOCOS.runOnLoop(func)
+function KOCOS.loop(func)
     table.insert(looped, func)
+end
+
+function KOCOS.unloop(func)
+    for i=#looped, 1, -1 do
+        if looped[i] == func then
+            table.remove(looped, i)
+            return
+        end
+    end
 end
 
 function KOCOS.runLoopedFuncs()
@@ -206,7 +215,7 @@ function KOCOS.bsod()
     end
 end
 
-function KOCOS.loop()
+function KOCOS.run()
     local lastPanicked = false
     local function processEvents()
         KOCOS.event.process(0)

@@ -5,9 +5,6 @@ _OSVERSION = "KOCOS Demo"
 local config = {
     rootfs = rootfs,
     init = "/basicTTY.lua",
-    needsExtensions = false,
-    eventOnLog = false,
-    eventOnPanic = false,
 }
 
 -- Will be overwritten by KOCOS anyways
