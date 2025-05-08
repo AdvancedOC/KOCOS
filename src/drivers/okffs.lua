@@ -231,7 +231,7 @@ end
 ---@param opts table?
 ---@return boolean, string?
 function okffs.format(partition, format, opts)
-    local drive = partition.drive
+    local drive = KOCOS.vdrive.proxy(partition.drive) or partition.drive
     if drive.type ~= "drive" then return false end
     if format ~= "okffs" then return false end
     opts = opts or {}

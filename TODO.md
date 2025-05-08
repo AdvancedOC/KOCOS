@@ -1,13 +1,3 @@
-# Better sockets
-
-Sockets should be implemented such that `read`s return entire *packets.*
-This is so protocols are easier to implement, as the beginning and end of each packet need not be handled by the protocol.
-It also makes them consistent with domain sockets.
-
-Currently this change only needs to be applied to radio sockets, but should be convention for all future socket implementations.
-
-The only exception is internet sockets because the card itself handles reads so we can't make it do that.
-
 # More unmanaged filesystem formats
 > Because you can never have enough
 
@@ -58,7 +48,7 @@ struct dirEntry {
     uint24_t firstBlockListSector;
     uint32_t fileSize;
     uint24_t blockCount; // to optimize activeBlockCount a lot
-    uint8_t reserved[11];
+    uint8_t reserved[11]; // 0'd out
 };
 ```
 

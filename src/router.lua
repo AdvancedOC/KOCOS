@@ -108,6 +108,6 @@ end
 
 KOCOS.router = router
 
-KOCOS.runOnLoop(router.update)
+KOCOS.loop(router.update)
 
 KOCOS.log("Router subsystem loaded")

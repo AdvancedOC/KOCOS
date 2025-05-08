@@ -13,7 +13,7 @@ radioSock.RADIO_MAX_BUFFER = 8192
 
 ---@class KOCOS.Radio.Pending
 ---@field address string
----@field buffer string
+---@field buffer mail
 
 ---@class KOCOS.Radio.Server
 ---@field pendingQueue KOCOS.Radio.Pending[]
@@ -24,7 +24,7 @@ radioSock.RADIO_MAX_BUFFER = 8192
 radioSock.serverMap = {}
 
 ---@class KOCOS.Radio.Connection
----@field buffer string
+---@field buffer mail
 --- If sent, send packets there
 ---@field pending? KOCOS.EventSystem
 
@@ -87,7 +87,7 @@ function radioSock:async_connect(socket, address, options)
     local addr = address .. ":" .. tostring(port)
 
     radioSock.connectionMap[addr] = {
-        buffer = "",
+        buffer = mail.create(radioSock.RADIO_MAX_BUFFER),
         pending = nil,
     }
 
@@ -99,12 +99,12 @@ end
 ---@param address any
 ---@param options any
 function radioSock:connect(socket, address, options)
-    if not socket.events.queued(KOCOS.network.EVENT_CONNECT_RESPONSE) then
+    if not socket.events.queued(network.EVENT_CONNECT_RESPONSE) then
         self:async_connect(socket, address, options)
     end
     while true do
-        local e, addr, ok, err = socket.events.pop(KOCOS.network.EVENT_CONNECT_RESPONSE)
-        if e == KOCOS.network.EVENT_CONNECT_RESPONSE then
+        local e, addr, ok, err = socket.events.pop(network.EVENT_CONNECT_RESPONSE)
+        if e == network.EVENT_CONNECT_RESPONSE then
             assert(ok, err)
             self.address = addr
             self.kind = "connection"
@@ -175,23 +175,13 @@ end
 -- Most complex function there is
 function radioSock:async_read(socket, len)
     local connection = radioSock.connectionMap[self.address]
-    if #connection.buffer > 0 then
-        -- We immediately got data
-        if len > #connection.buffer then len = #connection.buffer end
-        socket.events.push(network.EVENT_READ_RESPONSE, "", connection.buffer:sub(1, len)) -- for technical correctness
-    elseif connection then
+    if connection.buffer:empty() then
         connection.pending = socket.events -- we say there will be data
+    else
+        -- We immediately got data
+        socket.events.push(network.EVENT_READ_RESPONSE, "", connection.buffer:pop())
     end
     return ""
-end
-
----@param connection KOCOS.Radio.Connection
----@param len integer
-function radioSock:readBuffer(connection, len)
-    if len > #connection.buffer then len = #connection.buffer end
-    local chunk = connection.buffer:sub(1, len)
-    connection.buffer = connection.buffer:sub(len+1)
-    return chunk
 end
 
 ---@param socket KOCOS.NetworkSocket
@@ -200,18 +190,19 @@ function radioSock:read(socket, len)
     assert(self.kind == "connection", "bad state")
     local connection = radioSock.connectionMap[self.address]
     if not connection then return nil end -- closed
-    if #connection.buffer > 0 then
-        return self:readBuffer(connection, len)
+    if not connection.buffer:empty() then
+        socket.events.clear(network.EVENT_READ_RESPONSE)
+        return connection.buffer:pop()
     end
     self:async_read(socket, len)
     while true do
-        if socket.events.queued(KOCOS.network.EVENT_CLOSE_RESPONSE) then
+        if socket.events.queued(network.EVENT_CLOSE_RESPONSE) then
             return nil
         end
-        local e, _, ok, err = socket.events.pop(KOCOS.network.EVENT_READ_RESPONSE)
-        if e == KOCOS.network.EVENT_READ_RESPONSE then
+        local e, _, ok, err = socket.events.pop(network.EVENT_READ_RESPONSE)
+        if e == network.EVENT_READ_RESPONSE then
             if err then error(err) end
-            return self:readBuffer(connection, len)
+            return connection.buffer:pop()
         end
         KOCOS.yield()
     end
@@ -244,7 +235,7 @@ function radioSock.handler(event, sender, port, data, distance, time)
 
     if radioSock.connectionMap[addr] then
         local connection = radioSock.connectionMap[addr]
-        connection.buffer = (connection.buffer .. data):sub(-radioSock.RADIO_MAX_BUFFER)
+        connection.buffer:push(data)
         if connection.pending then
             connection.pending.push(network.EVENT_READ_RESPONSE, "", data)
             connection.pending = nil
@@ -252,9 +243,11 @@ function radioSock.handler(event, sender, port, data, distance, time)
     elseif radioSock.serverMap[port] then
         -- TODO: ensure unique queue
         local server = radioSock.serverMap[port]
+        local m = mail.create(radioSock.RADIO_MAX_BUFFER)
+        m:push(data)
         table.insert(server.pendingQueue, {
             address = addr,
-            buffer = data,
+            buffer = m,
         })
         server.events.push(network.EVENT_CONNECT_REQUEST)
         while #server.pendingQueue > radioSock.RADIO_MAX_PENDING do

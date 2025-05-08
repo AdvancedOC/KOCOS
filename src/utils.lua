@@ -104,7 +104,7 @@ function mail.create(limit)
 end
 
 function mail:empty()
-    return self.len == 0
+    return #self.buffer == 0
 end
 
 ---@return string?
@@ -117,8 +117,8 @@ end
 
 ---@param msg string
 function mail:push(msg)
-    self.len = self.len + #msg
     table.insert(self.buffer, msg)
+    self.len = self.len + #msg
     while self.len > self.limit do
         self:pop()
     end

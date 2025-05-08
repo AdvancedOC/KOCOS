@@ -27,6 +27,7 @@ local sources = {
     "src/drivers/osdi.lua",
     "src/drivers/kpr.lua",
     "src/drivers/okffs.lua",
+    "src/drivers/lightfs.lua",
     "src/drivers/tape_drive.lua",
     "src/drivers/internet.lua",
     "src/drivers/domain.lua",
