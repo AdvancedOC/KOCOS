@@ -21,7 +21,7 @@ function auth.listUsers(group)
 end
 
 ---@param user integer
----@return {name: string, groups: integer[], hasPassword: boolean}|table?
+---@return {name: string, groups: integer[], hasPassword: boolean}?
 function auth.userInfo(user)
     if user ~= 0 then return end
     return {
@@ -95,7 +95,7 @@ function perms.canWrite(puser, permissions)
     if puser == user or user == perms.ID_ALL then
         return bit32.btest(userRW, perms.BIT_WRITABLE)
     end
-    if KOCOS.auth.isUserInGroup(user, group) or group == perms.ID_ALL then
+    if KOCOS.auth.isUserInGroup(puser, group) or group == perms.ID_ALL then
         return bit32.btest(groupRW, perms.BIT_WRITABLE)
     end
     return false
@@ -108,7 +108,7 @@ function perms.canRead(puser, permissions)
     if puser == user or user == perms.ID_ALL then
         return bit32.btest(userRW, perms.BIT_READABLE)
     end
-    if KOCOS.auth.isUserInGroup(user, group) or group == perms.ID_ALL then
+    if KOCOS.auth.isUserInGroup(puser, group) or group == perms.ID_ALL then
         return bit32.btest(groupRW, perms.BIT_READABLE)
     end
     return false

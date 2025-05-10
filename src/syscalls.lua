@@ -461,7 +461,7 @@ end
 ---@param path string
 function syscalls.list(proc, path)
     local perms = KOCOS.fs.permissionsOf(path)
-    assert(KOCOS.perms.canWrite(proc.uid, perms), "permission denied")
+    assert(KOCOS.perms.canRead(proc.uid, perms), "permission denied")
     return assert(KOCOS.fs.list(path))
 end
 
