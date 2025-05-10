@@ -490,6 +490,7 @@ end
 function devfs:permissionsOf(path)
     local allGood = KOCOS.perms.encode(KOCOS.perms.ID_ALL, KOCOS.perms.BIT_READABLE, KOCOS.perms.ID_ALL, KOCOS.perms.BIT_READABLE)
     local goodToUse = {
+        "",
         "null",
         "zero",
         "random",
