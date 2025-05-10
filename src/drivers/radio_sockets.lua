@@ -86,6 +86,9 @@ function radioSock:async_connect(socket, address, options)
 
     local addr = address .. ":" .. tostring(port)
 
+    if radio.primaryModem() then
+        radio.open(port)
+    end
     radioSock.connectionMap[addr] = {
         buffer = mail.create(radioSock.RADIO_MAX_BUFFER),
         pending = nil,
